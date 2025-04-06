@@ -31,7 +31,7 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       
     - name: Publish
-      run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o release --nologo
+      run: dotnet publish BlazorApp1/Client/BlazorApp1.Client.csproj -c Release -o release --nologo
       
     # Changes the base-tag in index.html from '/' to '/RPVMS' to match GitHub Pages repository subdirectory
     - name: Change base-tag in index.html
