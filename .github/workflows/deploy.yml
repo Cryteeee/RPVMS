@@ -1,3 +1,6 @@
+# This workflow has been disabled to prevent conflicts with GitHub Pages deployment
+# The file will be removed in a future commit
+
 name: Deploy to GitHub Pages
 
 on:
