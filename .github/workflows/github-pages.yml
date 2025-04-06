@@ -21,14 +21,23 @@ jobs:
       with:
         dotnet-version: '7.0.x'
         
+    - name: Display directory structure
+      run: |
+        echo "Current directory:"
+        pwd
+        echo "Directory contents:"
+        ls -la
+        echo "Repository structure:"
+        find . -type f -name "*.sln" -o -name "*.csproj"
+        
     - name: Restore dependencies
-      run: dotnet restore BlazorApp1/BlazorApp1.sln
+      run: dotnet restore BlazorApp1.sln
       
     - name: Build
-      run: dotnet build BlazorApp1/BlazorApp1.sln --configuration Release --no-restore
+      run: dotnet build BlazorApp1.sln --configuration Release --no-restore
       
     - name: Publish
-      run: dotnet publish BlazorApp1/BlazorApp1/Client/BlazorApp1.Client.csproj -c Release -o release --nologo
+      run: dotnet publish BlazorApp1/Client/BlazorApp1.Client.csproj -c Release -o release --nologo
       
     - name: List published files
       run: |
