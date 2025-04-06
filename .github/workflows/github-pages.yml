@@ -27,38 +27,43 @@ jobs:
         pwd
         echo "Directory contents:"
         ls -la
-        echo "Repository structure:"
-        find . -type f -name "*.sln" -o -name "*.csproj"
         
     - name: Restore dependencies
-      run: dotnet restore BlazorApp1.sln
+      working-directory: ./BlazorApp1
+      run: dotnet restore
       
     - name: Build
-      run: dotnet build BlazorApp1.sln --configuration Release --no-restore
+      working-directory: ./BlazorApp1
+      run: dotnet build --configuration Release --no-restore
       
     - name: Publish
-      run: dotnet publish BlazorApp1/Client/BlazorApp1.Client.csproj -c Release -o release --nologo
+      working-directory: ./BlazorApp1
+      run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o ../release --nologo
       
     - name: List published files
       run: |
-        echo "Checking if wwwroot directory exists..."
-        ls -la release
-        echo "Contents of wwwroot directory:"
+        echo "Checking release directory..."
+        ls -la release || echo "Release directory not found"
+        echo "Checking for wwwroot..."
         ls -la release/wwwroot || echo "wwwroot directory not found"
-      
+        
     - name: Change base-tag in index.html
       run: sed -i 's/<base href="\/" \/>/<base href="\/RPVMS\/" \/>/g' release/wwwroot/index.html
       
     - name: Add .nojekyll file
       run: touch release/wwwroot/.nojekyll
-      
-    - name: Setup Pages
-      uses: actions/configure-pages@v3
-      
+
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v2
+      uses: actions/upload-pages-artifact@v1
       with:
-        path: 'release/wwwroot'
+        path: release/wwwroot
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v1
+      with:
+        token: ${{ github.token }}
+        artifact_name: github-pages
 
   deploy:
     needs: build
