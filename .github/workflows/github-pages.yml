@@ -25,52 +25,27 @@ jobs:
       with:
         dotnet-version: '7.0.x'
 
-    - name: Display structure for debugging
-      run: |
-        echo "Current directory:"
-        pwd
-        echo "Repository contents:"
-        ls -la
-        echo "Client directory contents:"
-        ls -la Client || echo "Client directory not found"
-
-    - name: Restore dependencies
-      run: dotnet restore BlazorApp1.sln
+    - name: Install dependencies
+      run: dotnet restore
 
     - name: Build
-      run: dotnet build BlazorApp1.sln --configuration Release --no-restore
+      run: dotnet build -c Release --no-restore
 
-    - name: Publish Blazor project
-      run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o release --nologo
+    - name: Publish
+      run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o dist
 
-    - name: Verify published output
-      run: |
-        echo "Release directory contents:"
-        ls -la release
-        echo "WWWRoot contents:"
-        ls -la release/wwwroot
+    - name: Change base-tag in index.html
+      run: sed -i 's/<base href="\/" \/>/<base href="\/RPVMS\/" \/>/g' dist/wwwroot/index.html
 
-    - name: Configure base path
-      run: sed -i 's/<base href="\/" \/>/<base href="\/RPVMS\/" \/>/g' release/wwwroot/index.html
-      
-    - name: Add .nojekyll file
-      run: touch release/wwwroot/.nojekyll
-
-    - name: Setup GitHub Pages
+    - name: Setup Pages
       uses: actions/configure-pages@v3
 
-    - name: Package site
-      shell: bash
-      run: |
-        cd release/wwwroot
-        touch .nojekyll
-        zip -r ../../site.zip .
-
-    - name: Upload GitHub Pages artifact
+    - name: Upload artifact
       uses: actions/upload-pages-artifact@v2
       with:
-        path: site.zip
+        path: dist/wwwroot
 
     - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v2 
+      uses: actions/deploy-pages@v2
+      with:
+        path: dist/wwwroot 
