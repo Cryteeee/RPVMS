@@ -29,13 +29,13 @@ jobs:
           dotnet-version: '7.0.x'
           
       - name: Install dependencies
-        run: dotnet restore
+        run: dotnet restore BlazorApp1.sln
         
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build BlazorApp1.sln -c Release --no-restore
         
       - name: Publish
-        run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o release
+        run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o release --no-restore
         
       - name: Change base-tag in index.html
         run: sed -i 's/<base href="\/" \/>/<base href="\/RPVMS\/" \/>/g' release/wwwroot/index.html
