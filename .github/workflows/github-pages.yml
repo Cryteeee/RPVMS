@@ -22,19 +22,24 @@ jobs:
         dotnet-version: '7.0.x'
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore BlazorApp1/BlazorApp1.sln
       
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build BlazorApp1/BlazorApp1.sln --configuration Release --no-restore
       
     - name: Publish
-      run: dotnet publish BlazorApp1/Client/BlazorApp1.Client.csproj -c Release -o release --nologo
-
-    # Changes the base-tag in index.html from '/' to '/RPVMS' to match GitHub Pages repository subdirectory
+      run: dotnet publish BlazorApp1/BlazorApp1/Client/BlazorApp1.Client.csproj -c Release -o release --nologo
+      
+    - name: List published files
+      run: |
+        echo "Checking if wwwroot directory exists..."
+        ls -la release
+        echo "Contents of wwwroot directory:"
+        ls -la release/wwwroot || echo "wwwroot directory not found"
+      
     - name: Change base-tag in index.html
       run: sed -i 's/<base href="\/" \/>/<base href="\/RPVMS\/" \/>/g' release/wwwroot/index.html
       
-    # Add .nojekyll file to tell GitHub pages not to use Jekyll to process the site
     - name: Add .nojekyll file
       run: touch release/wwwroot/.nojekyll
       
