@@ -6,16 +6,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 jobs:
-  deploy-to-github-pages:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v3
     
@@ -32,7 +29,7 @@ jobs:
       
     - name: Publish
       run: dotnet publish BlazorApp1/Client/BlazorApp1.Client.csproj -c Release -o release --nologo
-      
+
     # Changes the base-tag in index.html from '/' to '/RPVMS' to match GitHub Pages repository subdirectory
     - name: Change base-tag in index.html
       run: sed -i 's/<base href="\/" \/>/<base href="\/RPVMS\/" \/>/g' release/wwwroot/index.html
@@ -48,9 +45,14 @@ jobs:
       uses: actions/upload-pages-artifact@v2
       with:
         path: 'release/wwwroot'
-        
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v2
-      with:
-        token: ${{ github.token }} 
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2 
