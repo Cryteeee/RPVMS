@@ -1,0 +1,51 @@
+@using BlazorApp1.Client.Shared.Components
+
+<div class="@GetSpinnerClasses()">
+    @if (Type == SpinnerType.Default)
+    {
+        <div class="spinner-border @GetColorClass()" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    }
+    else if (Type == SpinnerType.Dots)
+    {
+        <div class="spinner-dots @GetSizeClass() @GetColorClass()">
+            <div class="dot1"></div>
+            <div class="dot2"></div>
+            <div class="dot3"></div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public SpinnerType Type { get; set; } = SpinnerType.Default;
+    [Parameter] public SpinnerSize Size { get; set; } = SpinnerSize.Medium;
+    [Parameter] public SpinnerColor Color { get; set; } = SpinnerColor.Warning;
+    [Parameter] public string AdditionalClasses { get; set; } = "";
+
+    private string GetSpinnerClasses()
+    {
+        return $"d-inline-block {AdditionalClasses}".Trim();
+    }
+
+    private string GetSizeClass()
+    {
+        return Size switch
+        {
+            SpinnerSize.Small => "small",
+            SpinnerSize.Large => "large",
+            _ => ""
+        };
+    }
+
+    private string GetColorClass()
+    {
+        return Color switch
+        {
+            SpinnerColor.Primary => "primary",
+            SpinnerColor.Warning => "warning",
+            SpinnerColor.Light => "light",
+            _ => "warning"
+        };
+    }
+} 

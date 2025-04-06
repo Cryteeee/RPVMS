@@ -1,0 +1,786 @@
+﻿@page "/updateaccount/{Action}"
+@using BlazorApp1.Client.Auth
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Client.Models
+@using BlazorApp1.Client.Components
+@using BlazorApp1.Shared
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject SweetAlertService Swal
+@inject NavigationManager NavigationManager
+@inject IAccountService AccountService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILocalStorageService LocalStorage
+@inject HttpClient Http
+
+<style>
+    .container {
+        position:relative;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .card {
+        position:relative;
+        border: none;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        border-radius: 24px;
+        background: #fff;
+        max-width: 800px;
+        width: 90%;
+        height: 100%;
+        margin: auto;
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.95);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #FFC107 0%, #ffca2c 100%);
+        color: #212529;
+        padding: 2rem;
+        border: none;
+        border-radius: 24px 24px 0 0;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    .header-icon {
+        font-size: 1.75rem;
+        color: #000;
+    }
+
+    .card-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+
+    .card-header h3 {
+        margin: 0;
+        font-weight: 700;
+        font-size: 2rem;
+        letter-spacing: -0.5px;
+        color: #000;
+        position: relative;
+        z-index: 1;
+    }
+
+    .card-body {
+        padding: 2.5rem;
+        flex-grow: 1;
+    }
+
+    .form-label {
+        color: #1a1a1a;
+        font-weight: 600;
+        font-size: 1rem;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.75rem;
+        display: block;
+        transition: all 0.2s ease;
+    }
+
+    .form-control {
+        font-size: 1rem;
+        line-height: 1.6;
+        padding: 1rem 1.25rem;
+        border-radius: 16px;
+        border: 2px solid #e9ecef;
+        background-color: #fff;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    .form-control:focus {
+        border-color: #FFC107;
+        box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.15);
+        outline: none;
+        transform: translateY(-1px);
+    }
+
+    .form-control:disabled {
+        background-color: #f8f9fa;
+        border-color: #e9ecef;
+        color: #6c757d;
+        cursor: not-allowed;
+    }
+
+    .form-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+        letter-spacing: 0.2px;
+        line-height: 1.5;
+    }
+    
+    .btn-custom {
+        background: linear-gradient(135deg, #FFC107 0%, #ffca2c 100%);
+        border: none;
+        color: #000;
+        position:relative;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 600;
+        font-size: 1rem;
+        letter-spacing: 0.3px;
+        padding: 1rem 2rem;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+    }
+
+    .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px rgba(255, 193, 7, 0.3);
+        background: linear-gradient(135deg, #ffca2c 0%, #FFD54F 100%);
+    }
+
+    .btn-custom:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+    }
+
+    .btn-secondary {
+        background: #f8f9fa;
+        border: none;
+        color: #212529;
+        font-weight: 600;
+        font-size: 1rem;
+        letter-spacing: 0.3px;
+        padding: 1rem 2rem;
+        border-radius: 16px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .btn-secondary:hover {
+        background-color: #e9ecef;
+        color: #000;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+
+    .spinner-custom {
+        color: #FFC107;
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .alert {
+        font-size: 1rem;
+        letter-spacing: 0.2px;
+        line-height: 1.6;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .alert-warning {
+        background-color: #fff8e1;
+        color: #856404;
+        border-left: 4px solid #FFC107;
+    }
+
+    .form-group {
+        margin-bottom: 2rem;
+    }
+
+    .mt-3 {
+        margin-top: 2rem !important;
+    }
+
+    .spinner-border-sm {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-width: 0.15em;
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        letter-spacing: 0.2px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .validation-message::before {
+        content: '⚠';
+        font-size: 1rem;
+    }
+
+    @@media (max-width: 768px) {
+        .container {
+            left: 0;
+            padding: 1rem;
+        }
+
+        .card {
+            width: 95%;
+            height: 90vh;
+            margin: auto;
+            border-radius: 20px;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+    }
+</style>
+
+<AuthorizeView Context="authContext">
+    <Authorized>
+        <div class="container">
+            <div class="card">
+                <div class="card-header">
+                    @switch (Action?.ToLower())
+                    {
+                        case "email":
+                            <i class="bi bi-envelope header-icon"></i>
+                            break;
+                        case "username":
+                            <i class="bi bi-person header-icon"></i>
+                            break;
+                        case "password":
+                            <i class="bi bi-key header-icon"></i>
+                            break;
+                        default:
+                            <i class="bi bi-gear header-icon"></i>
+                            break;
+                    }
+                    <h3>@GetPageTitle()</h3>
+                </div>
+                <div class="card-body">
+                    @if (isLoading)
+                    {
+                        <div class="text-center">
+                            <div class="spinner-border spinner-custom" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+                            @switch (Action?.ToLower())
+                            {
+                                case "email":
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">Current Email</label>
+                                        <input type="email" class="form-control" value="@currentEmail" disabled />
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">New Email</label>
+                                        <InputText type="email" class="form-control" @bind-Value="model.Email" />
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">Current Password</label>
+                                        <InputText type="password" class="form-control" @bind-Value="model.CurrentPassword" />
+                                    </div>
+                                    break;
+
+                                case "username":
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">Current Username</label>
+                                        <input type="text" class="form-control" value="@currentUsername" disabled />
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">New Username</label>
+                                        <InputText class="form-control" @bind-Value="model.Username" />
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">Current Password</label>
+                                        <InputText type="password" class="form-control" @bind-Value="model.CurrentPassword" />
+                                    </div>
+                                    break;
+
+                                case "password":
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">Current Password</label>
+                                        <InputText type="password" class="form-control" @bind-Value="model.CurrentPassword" />
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">New Password</label>
+                                        <InputText type="password" class="form-control" @bind-Value="model.NewPassword" />
+                                        <small class="form-text text-muted">Password must be at least 8 characters long and contain uppercase, lowercase, and numbers.</small>
+                                    </div>
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">Confirm New Password</label>
+                                        <InputText type="password" class="form-control" @bind-Value="model.ConfirmNewPassword" />
+                                    </div>
+                                    @if (isUserSuperAdmin)
+                                    {
+                                        <div class="form-group mb-3">
+                                            <label class="form-label">Security Key</label>
+                                            <InputText type="password" class="form-control" @bind-Value="model.SecurityKey" />
+                                            <small class="form-text text-muted">Required for SuperAdmin password changes.</small>
+                                        </div>
+                                    }
+                                    break;
+
+                                default:
+                                    <div class="alert alert-danger">Invalid action specified</div>
+                                    break;
+                            }
+
+                            <div class="mt-3">
+                                <button type="submit" class="btn btn-custom" disabled="@isSubmitting">
+                                    @if (isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        <span>Updating...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Update @Action</span>
+                                    }
+                                </button>
+                                <button type="button" class="btn btn-secondary ms-2" @onclick="NavigateBack">Back</button>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-warning">
+            <p>Please log in to access this page.</p>
+            <button class="btn btn-custom" @onclick="NavigateToLogin">Login</button>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    public string Action { get; set; }
+
+    private UpdateAccountModel model;
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private string currentEmail;
+    private string currentUsername;
+    private string token;
+    private bool isUserSuperAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Initialize model first to prevent null reference
+            model = new UpdateAccountModel();
+            
+            token = await LocalStorage.GetItemAsync<string>("jwt-access-token");
+            if (string.IsNullOrEmpty(token))
+            {
+                NavigateToLogin();
+                return;
+            }
+
+            // Set the authorization header
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState?.User;
+
+            if (user == null || !user.Identity.IsAuthenticated)
+            {
+                NavigateToLogin();
+                return;
+            }
+
+            // Check if user is SuperAdmin
+            isUserSuperAdmin = user.IsInRole("SuperAdmin");
+
+            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                await HandleError("Invalid user ID");
+                return;
+            }
+
+            model.UserId = userId;
+
+            var currentUser = await AccountService.GetById(userId);
+            if (currentUser != null)
+            {
+                currentEmail = currentUser.Email ?? string.Empty;
+                currentUsername = currentUser.Username ?? string.Empty;
+
+                // Only set model properties based on the current action
+                switch (Action?.ToLower())
+                {
+                    case "email":
+                        model.Email = string.Empty;
+                        model.CurrentPassword = string.Empty;
+                        break;
+                    case "username":
+                        model.Username = string.Empty;
+                        model.CurrentPassword = string.Empty;
+                        break;
+                    case "password":
+                        model.CurrentPassword = string.Empty;
+                        model.NewPassword = string.Empty;
+                        model.ConfirmNewPassword = string.Empty;
+                        break;
+                    default:
+                        await HandleError("Invalid action specified");
+                        return;
+                }
+            }
+            else
+            {
+                await HandleError("Failed to load user details");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            await HandleError(ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (model == null)
+        {
+            await HandleError("Invalid form state");
+            return;
+        }
+
+        try
+        {
+            if (isSubmitting) return;
+            isSubmitting = true;
+
+            if (string.IsNullOrEmpty(token))
+            {
+                await HandleError("Authentication token expired");
+                return;
+            }
+
+            Response response = Action?.ToLower() switch
+            {
+                "password" => await HandlePasswordUpdate(),
+                "username" => await HandleUsernameUpdate(),
+                "email" => await HandleEmailUpdate(),
+                _ => new Response { IsSuccess = false, Message = "Invalid action" }
+            };
+
+            if (response != null && response.IsSuccess)
+            {
+                // Don't show success message for email update as it's already shown in HandleEmailUpdate
+                if (Action?.ToLower() != "email")
+                {
+                    await Swal.FireAsync("Success", "Update successful!", SweetAlertIcon.Success);
+                }
+                NavigateBack();
+            }
+            else if (response != null && !string.IsNullOrEmpty(response.Message))
+            {
+                await HandleError(response.Message);
+            }
+            else
+            {
+                await HandleError("Update failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            await HandleError(ex.Message);
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<Response> HandlePasswordUpdate()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(model.CurrentPassword))
+            {
+                await Swal.FireAsync("Validation Error", "Current password is required", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (string.IsNullOrWhiteSpace(model.NewPassword))
+            {
+                await Swal.FireAsync("Validation Error", "New password is required", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (string.IsNullOrWhiteSpace(model.ConfirmNewPassword))
+            {
+                await Swal.FireAsync("Validation Error", "Please confirm your new password", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (model.NewPassword != model.ConfirmNewPassword)
+            {
+                await Swal.FireAsync("Validation Error", "New passwords do not match", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (!IsValidPassword(model.NewPassword))
+            {
+                await Swal.FireAsync("Validation Error", "Password must be at least 8 characters long and contain uppercase, lowercase, and numbers", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (isUserSuperAdmin && string.IsNullOrWhiteSpace(model.SecurityKey))
+            {
+                await Swal.FireAsync("Security Key Required", "Please enter the security key to change SuperAdmin password", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            var response = await AccountService.UpdatePassword(model.UserId, model.CurrentPassword, model.NewPassword, model.SecurityKey);
+            
+            // Clean up error message if it's about invalid security key
+            if (!response.IsSuccess && response.Message?.Contains("Invalid Security Key") == true)
+            {
+                await Swal.FireAsync("Error", "Invalid Security Key", SweetAlertIcon.Error);
+                return new Response { IsSuccess = false };
+            }
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            await HandleError($"Error updating password: {ex.Message}");
+            return new Response { IsSuccess = false };
+        }
+    }
+
+    private async Task<Response> HandleUsernameUpdate()
+    {
+        try
+        {
+            // Check if user is SuperAdmin first
+            if (isUserSuperAdmin)
+            {
+                await Swal.FireAsync(
+                    "Prohibited Action",
+                    "SuperAdmin username credentials cannot be modified for security reasons.",
+                    SweetAlertIcon.Error
+                );
+                return new Response { IsSuccess = false };
+            }
+
+            if (string.IsNullOrWhiteSpace(model.Username))
+            {
+                await Swal.FireAsync("Validation Error", "Username is required", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (model.Username.Length < 3 || model.Username.Length > 50)
+            {
+                await Swal.FireAsync("Validation Error", "Username must be between 3 and 50 characters", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (string.IsNullOrWhiteSpace(model.CurrentPassword))
+            {
+                await Swal.FireAsync("Validation Error", "Current password is required to change username", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            // First verify the current password
+            var passwordVerification = await AccountService.UpdatePassword(model.UserId, model.CurrentPassword, model.CurrentPassword);
+            if (!passwordVerification.IsSuccess)
+            {
+                await Swal.FireAsync("Validation Error", "Current password is incorrect", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            return await AccountService.AddUpdate(new RegistrationView
+            {
+                UserId = model.UserId,
+                Username = model.Username,
+                Email = currentEmail,
+                CurrentPassword = model.CurrentPassword
+            });
+        }
+        catch (Exception ex)
+        {
+            await HandleError($"Error updating username: {ex.Message}");
+            return new Response { IsSuccess = false, Message = ex.Message };
+        }
+    }
+
+    private async Task<Response> HandleEmailUpdate()
+    {
+        try 
+        {
+            // Check if user is SuperAdmin first
+            if (isUserSuperAdmin)
+            {
+                await Swal.FireAsync(
+                    "Prohibited Action",
+                    "SuperAdmin email credentials cannot be modified for security reasons.",
+                    SweetAlertIcon.Error
+                );
+                return new Response { IsSuccess = false };
+            }
+
+            if (string.IsNullOrWhiteSpace(model.Email))
+            {
+                await Swal.FireAsync("Validation Error", "Email is required", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (!IsValidEmail(model.Email))
+            {
+                await Swal.FireAsync("Validation Error", "Please enter a valid email address", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            if (string.IsNullOrWhiteSpace(model.CurrentPassword))
+            {
+                await Swal.FireAsync("Validation Error", "Current password is required to change email", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            // First verify the current password
+            var passwordVerification = await AccountService.UpdatePassword(model.UserId, model.CurrentPassword, model.CurrentPassword);
+            if (!passwordVerification.IsSuccess)
+            {
+                await Swal.FireAsync("Validation Error", "Current password is incorrect", SweetAlertIcon.Warning);
+                return new Response { IsSuccess = false };
+            }
+
+            // Show warning about email verification requirement
+            var confirmResult = await Swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Email Verification Required",
+                Html = "Important: When you change your email address:<br/><br/>" +
+                      "1. Your email status will be set to unverified<br/>" +
+                      "2. You will need to verify the new email address<br/>" +
+                      "3. This applies even if you've used this email before<br/><br/>" +
+                      "Do you want to proceed with the email change?",
+                Icon = SweetAlertIcon.Warning,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, change email",
+                CancelButtonText = "No, keep current email",
+                ConfirmButtonColor = "#FFC107",
+                CancelButtonColor = "#6c757d"
+            });
+
+            if (!confirmResult.IsConfirmed)
+            {
+                return new Response { IsSuccess = false };
+            }
+
+            var updateModel = new RegistrationView
+            {
+                UserId = model.UserId,
+                Username = currentUsername,
+                Email = model.Email,
+                CurrentPassword = model.CurrentPassword,
+                Password = model.CurrentPassword // Set Password to CurrentPassword to satisfy validation
+            };
+
+            var response = await AccountService.AddUpdate(updateModel);
+            
+            if (response.IsSuccess)
+            {
+                await Swal.FireAsync("Success", "Email updated successfully. Please check your new email for verification.", SweetAlertIcon.Success);
+            }
+            
+            return response;
+        }
+        catch (Exception ex)
+        {
+            await HandleError($"Error updating email: {ex.Message}");
+            return new Response { IsSuccess = false, Message = ex.Message };
+        }
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool IsValidPassword(string password)
+    {
+        return !string.IsNullOrWhiteSpace(password) &&
+               password.Length >= 8 &&
+               password.Any(char.IsUpper) &&
+               password.Any(char.IsLower) &&
+               password.Any(char.IsDigit);
+    }
+
+    private async Task HandleError(string message)
+    {
+        if (message.Contains("401") || message.Contains("Unauthorized"))
+        {
+            await LocalStorage.RemoveItemAsync("jwt-access-token");
+            NavigateToLogin();
+        }
+        else
+        {
+            // Clean up the error message if it contains JSON-like format
+            if (message.Contains("{\"message\":\""))
+            {
+                message = message.Split(new[] { "\"message\":\"" }, StringSplitOptions.None)[1]
+                    .Split(new[] { "\"}" }, StringSplitOptions.None)[0];
+            }
+            await Swal.FireAsync("Error", message, SweetAlertIcon.Error);
+        }
+    }
+
+    private string GetPageTitle() => Action?.ToLower() switch
+    {
+        "email" => "Change Email",
+        "username" => "Change Username",
+        "password" => "Change Password",
+        _ => "Update Account"
+    };
+
+    private void NavigateBack() => NavigationManager.NavigateTo("/account");
+    private void NavigateToLogin() => NavigationManager.NavigateTo("/");
+}
+
+

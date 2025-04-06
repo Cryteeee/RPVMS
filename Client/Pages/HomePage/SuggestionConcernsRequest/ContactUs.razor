@@ -1,0 +1,1329 @@
+@page "/ContactUs"
+@page "/ContactUs/{FormType}"
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Models
+@using CurrieTechnologies.Razor.SweetAlert2
+@using System.IO
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Logging
+@inject HttpClient Http
+@inject ILogger<ContactUs> Logger
+@inject NavigationManager NavigationManager
+@inject SweetAlertService Swal
+@inject IJSRuntime JSRuntime
+
+@layout NavbarOverview
+
+<div class="contact-page">
+    <div class="contact-section">
+        <div class="contact-info">
+            <h2>Get in Touch</h2>
+            <p class="subtitle">We're here to help and answer any questions you might have</p>
+            
+            <ul class="contact-cards">
+                <li class="contact-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Visit Us</h3>
+                        <p>Roosevelt Park Village, Subic Bay Freeport Zone</p>
+                    </div>
+                </li>
+                <li class="contact-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-phone"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Call Us</h3>
+                        <p>+63 (047) 252-XXXX</p>
+                    </div>
+                </li>
+                <li class="contact-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Email Us</h3>
+                        <p>info@rpv.com</p>
+                    </div>
+                </li>
+                <li class="contact-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Office Hours</h3>
+                        <p>Monday - Friday: 8:00 AM - 5:00 PM</p>
+                        <p>Saturday: 8:00 AM - 12:00 PM</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="map-section">
+        <iframe 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3856.518164375923!2d120.37207737389923!3d14.852276485664424!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33966f8a151b62ab%3A0x4cbe20e7a45ea162!2sRoosevelt%20Park%20Village!5e0!3m2!1sen!2sph!4v1742945519358!5m2!1sen!2sph" 
+            class="google-map" 
+            allowfullscreen="" 
+            loading="lazy" 
+            referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+    </div>
+</div>
+
+<div class="concern-section @(string.IsNullOrEmpty(FormType) ? "" : "d-none")">
+    <div class="container">
+        <h1>How Can We Help You Today?</h1>
+        <p class="section-description">Choose an option below to get started with your request</p>
+        <div class="concern-buttons">
+            <a href="/client/submit/suggestion" 
+               class="concern-btn suggestion" 
+               @onclick="@(async () => await NavigateToClientForm("suggestion"))" 
+               @onclick:preventDefault>
+                <i class="fas fa-lightbulb"></i>
+                Share a Suggestion
+            </a>
+            <a href="/client/submit/concern" 
+               class="concern-btn concerns" 
+               @onclick="@(async () => await NavigateToClientForm("concern"))" 
+               @onclick:preventDefault>
+                <i class="fas fa-exclamation-circle"></i>
+                Report a Concern
+            </a>
+            <a href="/client/submit/request" 
+               class="concern-btn request" 
+               @onclick="@(async () => await NavigateToClientForm("request"))" 
+               @onclick:preventDefault>
+                <i class="fas fa-hand-holding-heart"></i>
+                Make a Request
+            </a>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(FormType))
+{
+    <div class="form-container">
+        <button class="change-form-btn" @onclick="ShowFormButtons">
+            <i class="fas fa-exchange-alt"></i>
+            Change Form Type
+        </button>
+        <EditForm Model="@contactForm" OnValidSubmit="HandleValidSubmit">
+            <DataAnnotationsValidator />
+            
+            @switch (FormType.ToLower())
+            {
+                case "suggestion":
+                    <div class="form-content">
+                        <h2>Submit Your Suggestion</h2>
+                        <p>Help us improve our community by sharing your ideas and suggestions</p>
+                        
+                        <div class="form-group">
+                            <label for="suggestion-title">Title</label>
+                            <InputText @bind-Value="contactForm.Title" 
+                                     class="form-control" 
+                                     id="suggestion-title" 
+                                     placeholder="Enter suggestion title"
+                                     title="Suggestion title" />
+                            <ValidationMessage For="@(() => contactForm.Title)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="suggestion-email">Email</label>
+                            <InputText @bind-Value="contactForm.Email" 
+                                     class="form-control" 
+                                     id="suggestion-email" 
+                                     placeholder="Enter your email"
+                                     title="Email address" />
+                            <ValidationMessage For="@(() => contactForm.Email)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="suggestion-category">Category</label>
+                            <InputSelect @bind-Value="contactForm.SuggestionCategory" 
+                                       class="form-control" 
+                                       id="suggestion-category"
+                                       title="Suggestion category">
+                                <option value="">Select a category</option>
+                                <option value="facilities">Facilities</option>
+                                <option value="security">Security</option>
+                                <option value="maintenance">Maintenance</option>
+                                <option value="events">Events</option>
+                                <option value="other">Other</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => contactForm.SuggestionCategory)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="suggestion-description">Description</label>
+                            <InputTextArea @bind-Value="contactForm.Description" 
+                                         class="form-control" 
+                                         id="suggestion-description" 
+                                         rows="5" 
+                                         placeholder="Describe your suggestion in detail"
+                                         title="Suggestion description" />
+                            <ValidationMessage For="@(() => contactForm.Description)" />
+                        </div>
+
+                        <button type="submit" 
+                                class="submit-btn suggestion" 
+                                title="Submit suggestion">
+                            Submit Suggestion
+                        </button>
+                    </div>
+                    break;
+
+                case "concern":
+                    <div class="form-content">
+                        <h2>Report Your Concern</h2>
+                        <p>We take your concerns seriously. Please provide detailed information about your concern.</p>
+                        
+                        <div class="form-group">
+                            <label for="concerns-title">Title</label>
+                            <InputText @bind-Value="contactForm.Title" 
+                                     class="form-control" 
+                                     id="concerns-title" 
+                                     placeholder="Enter concern title"
+                                     title="Concern title" />
+                            <ValidationMessage For="@(() => contactForm.Title)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="concerns-email">Email</label>
+                            <InputText @bind-Value="contactForm.Email" 
+                                     class="form-control" 
+                                     id="concerns-email" 
+                                     placeholder="Enter your email"
+                                     title="Email address" />
+                            <ValidationMessage For="@(() => contactForm.Email)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="concerns-priority">Priority Level</label>
+                            <InputSelect @bind-Value="contactForm.PriorityLevel" 
+                                       class="form-control" 
+                                       id="concerns-priority"
+                                       title="Priority level">
+                                <option value="">Select priority level</option>
+                                <option value="@BlazorApp1.Shared.Models.PriorityLevel.Low">Low</option>
+                                <option value="@BlazorApp1.Shared.Models.PriorityLevel.Medium">Medium</option>
+                                <option value="@BlazorApp1.Shared.Models.PriorityLevel.High">High</option>
+                                <option value="@BlazorApp1.Shared.Models.PriorityLevel.Critical">Critical</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => contactForm.PriorityLevel)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="concerns-category">Category</label>
+                            <InputSelect @bind-Value="contactForm.ConcernCategory" 
+                                     class="form-control" 
+                                     id="concerns-category"
+                                     title="Concern category">
+                                <option value="">Select a category</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.NoiseComplaint">Noise Complaint</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.PropertyMaintenance">Property Maintenance</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.RuleViolation">Rule Violation</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.SecurityIssue">Security Issue</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.ParkingViolation">Parking Violation</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.NeighborDispute">Neighbor Dispute</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.CommonAreaIssue">Common Area Issue</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.PetRelated">Pet Related</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.ArchitecturalViolation">Architectural Violation</option>
+                                <option value="@BlazorApp1.Shared.Models.ConcernCategory.Other">Other</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => contactForm.ConcernCategory)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="concerns-location">Location</label>
+                            <InputText @bind-Value="contactForm.Location" 
+                                     class="form-control" 
+                                     id="concerns-location" 
+                                     placeholder="Enter location"
+                                     title="Location" />
+                            <ValidationMessage For="@(() => contactForm.Location)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="concerns-description">Description</label>
+                            <InputTextArea @bind-Value="contactForm.Description" 
+                                         class="form-control" 
+                                         id="concerns-description" 
+                                         rows="5" 
+                                         placeholder="Describe your concern in detail"
+                                         title="Concern description" />
+                            <ValidationMessage For="@(() => contactForm.Description)" />
+                        </div>
+
+                        <button type="submit" class="submit-btn concerns">Submit Concern</button>
+                    </div>
+                    break;
+
+                case "request":
+                    <div class="form-content">
+                        <h2>Submit Your Request</h2>
+                        <p>Please provide details about your request.</p>
+                        
+                        <div class="form-group">
+                            <label for="request-title">Title</label>
+                            <InputText @bind-Value="contactForm.Title" 
+                                     class="form-control" 
+                                     id="request-title" 
+                                     placeholder="Enter request title"
+                                     title="Request title" />
+                            <ValidationMessage For="@(() => contactForm.Title)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="request-email">Email</label>
+                            <InputText @bind-Value="contactForm.Email" 
+                                     class="form-control" 
+                                     id="request-email" 
+                                     placeholder="Enter your email"
+                                     title="Email address" />
+                            <ValidationMessage For="@(() => contactForm.Email)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="request-type">Request Type</label>
+                            <InputSelect @bind-Value="contactForm.RequestType" 
+                                     class="form-control" 
+                                     id="request-type"
+                                     title="Request type">
+                                <option value="">Select request type</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.MaintenanceRequest">Maintenance Request</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.ArchitecturalChange">Architectural Change</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.CommonAreaReservation">Common Area Reservation</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.DocumentRequest">Document Request</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.ParkingPermit">Parking Permit</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.PoolAccess">Pool Access</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.MovingInOut">Moving In/Out</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.LandscapingService">Landscaping Service</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.GeneralInquiry">General Inquiry</option>
+                                <option value="@BlazorApp1.Shared.Models.RequestType.Other">Other</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => contactForm.RequestType)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="request-urgency">Urgency Level</label>
+                            <InputSelect @bind-Value="contactForm.UrgencyLevel" 
+                                       class="form-control" 
+                                       id="request-urgency"
+                                       title="Urgency level">
+                                <option value="">Select urgency level</option>
+                                <option value="@BlazorApp1.Shared.Models.UrgencyLevel.Low">Low</option>
+                                <option value="@BlazorApp1.Shared.Models.UrgencyLevel.Medium">Medium</option>
+                                <option value="@BlazorApp1.Shared.Models.UrgencyLevel.High">High</option>
+                                <option value="@BlazorApp1.Shared.Models.UrgencyLevel.Critical">Critical</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => contactForm.UrgencyLevel)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="request-date">Preferred Date</label>
+                            <InputDate @bind-Value="contactForm.PreferredDate" 
+                                     class="form-control" 
+                                     id="request-date"
+                                     min="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                     title="Preferred date" />
+                            <ValidationMessage For="@(() => contactForm.PreferredDate)" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="request-description">Description</label>
+                            <InputTextArea @bind-Value="contactForm.Description" 
+                                         class="form-control" 
+                                         id="request-description" 
+                                         rows="5" 
+                                         placeholder="Describe your request in detail"
+                                         title="Request description" />
+                            <ValidationMessage For="@(() => contactForm.Description)" />
+                        </div>
+
+                        <button type="submit" class="submit-btn request">Submit Request</button>
+                    </div>
+                    break;
+            }
+        </EditForm>
+    </div>
+}
+
+<style>
+    .contact-page {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2.5rem;
+        padding: 3rem 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+        min-height: calc(100vh - 100px);
+    }
+
+    .contact-section {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 
+            0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        animation: scaleIn 0.6s ease-out;
+    }
+
+    .contact-section:hover {
+        transform: translateY(-5px);
+        box-shadow: 
+            0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .contact-info h2 {
+        color: #1a202c;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        position: relative;
+        display: inline-block;
+        animation: slideIn 0.6s ease-out;
+    }
+
+    .contact-info h2::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: 60%;
+        height: 4px;
+        background: linear-gradient(90deg, #ffc107, #ffdb4d);
+        border-radius: 2px;
+    }
+
+    .subtitle {
+        color: #4a5568;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin-bottom: 3rem;
+        animation: fadeIn 0.6s ease-out 0.2s both;
+    }
+
+    .contact-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .contact-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        animation: fadeIn 0.6s ease-out both;
+    }
+
+    .contact-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 20px -10px rgba(0, 0, 0, 0.1);
+        border-color: #ffc107;
+    }
+
+    .icon-wrapper {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #ffc107, #ffdb4d);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: transform 0.3s ease;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .contact-card:hover .icon-wrapper {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .icon-wrapper i {
+        color: white;
+        font-size: 1.4rem;
+        transition: transform 0.3s ease;
+    }
+
+    .contact-card:hover .icon-wrapper i {
+        transform: scale(1.1);
+    }
+
+    .card-content {
+        flex: 1;
+    }
+
+    .card-content h3 {
+        color: #1a202c;
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .card-content p {
+        color: #4a5568;
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .map-section {
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 
+            0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        animation: scaleIn 0.6s ease-out 0.4s both;
+    }
+
+    .map-section:hover {
+        transform: translateY(-5px);
+        box-shadow: 
+            0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .google-map {
+        width: 100%;
+        height: 100%;
+        min-height: 500px;
+        border: none;
+        filter: contrast(1.1) saturate(1.2);
+    }
+
+    @@media (max-width: 1024px) {
+        .contact-page {
+            grid-template-columns: 1fr;
+        }
+        
+        .contact-section {
+            padding: 2rem;
+        }
+        
+        .contact-info h2 {
+            font-size: 2rem;
+        }
+        
+        .map-section {
+            min-height: 400px;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .contact-page {
+            padding: 2rem 1rem;
+        }
+        
+        .contact-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .contact-card {
+            padding: 1.25rem;
+        }
+        
+        .contact-info h2 {
+            font-size: 1.75rem;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+    }
+
+    .concern-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        padding: 4rem 2rem;
+        border-radius: 24px;
+        margin: 2rem auto;
+        max-width: 1200px;
+        box-shadow: 
+            0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .concern-section.d-none {
+        display: none;
+    }
+
+    .concern-section h1 {
+        text-align: center;
+        color: #1a202c;
+        font-size: 2.75rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #1a202c 0%, #4a5568 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        position: relative;
+        animation: fadeIn 0.6s ease-out;
+    }
+
+    .section-description {
+        text-align: center;
+        color: #4a5568;
+        font-size: 1.25rem;
+        margin-bottom: 3rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.6;
+        animation: fadeIn 0.6s ease-out 0.2s both;
+    }
+
+    .concern-buttons {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+        max-width: 1000px;
+        margin: 3rem auto 0;
+        padding: 0 1rem;
+    }
+
+    .concern-btn {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+        border-radius: 16px;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: white;
+        text-decoration: none;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        cursor: pointer;
+        background-size: 200% auto;
+        animation: scaleIn 0.6s ease-out both;
+    }
+
+    .concern-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.2) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .concern-btn:hover::before {
+        opacity: 1;
+    }
+
+    .concern-btn i {
+        font-size: 1.5rem;
+        transition: transform 0.3s ease;
+    }
+
+    .concern-btn:hover i {
+        transform: scale(1.2) rotate(15deg);
+    }
+
+    .concern-btn.suggestion {
+        background-image: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+    }
+
+    .concern-btn.concerns {
+        background-image: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    .concern-btn.request {
+        background-image: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .concern-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-container {
+        max-width: 800px;
+        margin: 3rem auto;
+        padding: 0 1.5rem;
+    }
+
+    .form-content {
+        background: white;
+        padding: 2.5rem;
+        border-radius: 20px;
+        box-shadow: 
+            0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        animation: scaleIn 0.6s ease-out;
+    }
+
+    .form-content h2 {
+        color: #1a202c;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-align: center;
+    }
+
+    .form-content p {
+        color: #4a5568;
+        text-align: center;
+        margin-bottom: 2.5rem;
+        font-size: 1.1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+        position: relative;
+        animation: fadeIn 0.6s ease-out both;
+    }
+
+    .form-group:nth-child(1) { animation-delay: 0.2s; }
+    .form-group:nth-child(2) { animation-delay: 0.3s; }
+    .form-group:nth-child(3) { animation-delay: 0.4s; }
+    .form-group:nth-child(4) { animation-delay: 0.5s; }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #4a5568;
+        font-weight: 500;
+        font-size: 0.95rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+        color: #1a202c;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #ffc107;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.1);
+    }
+
+    .form-control::placeholder {
+        color: #a0aec0;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        margin-top: 2rem;
+        animation: fadeIn 0.6s ease-out 0.6s both;
+    }
+
+    .submit-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.2) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .submit-btn:hover::before {
+        opacity: 1;
+    }
+
+    .submit-btn.suggestion {
+        background: linear-gradient(135deg, #2ecc71, #27ae60);
+        box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+    }
+
+    .submit-btn.concerns {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    .submit-btn.request {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+        box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .change-form-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.875rem 1.5rem;
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, #64748b, #475569);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .change-form-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        background: linear-gradient(135deg, #475569, #334155);
+    }
+
+    .change-form-btn i {
+        font-size: 1.1rem;
+        transition: transform 0.3s ease;
+    }
+
+    .change-form-btn:hover i {
+        transform: rotate(180deg);
+    }
+
+    @@media (max-width: 768px) {
+        .concern-section {
+            padding: 3rem 1.5rem;
+            margin: 1rem;
+        }
+
+        .concern-section h1 {
+            font-size: 2rem;
+        }
+
+        .section-description {
+            font-size: 1.1rem;
+        }
+
+        .concern-buttons {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .concern-btn {
+            padding: 1.25rem;
+            font-size: 1.1rem;
+        }
+
+        .form-container {
+            margin: 2rem 1rem;
+            padding: 0;
+        }
+
+        .form-content {
+            padding: 1.5rem;
+        }
+
+        .form-content h2 {
+            font-size: 1.75rem;
+        }
+    }
+
+    /* Animations */
+    @@keyframes fadeIn {
+        from { 
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to { 
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes float {
+        0% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+        100% {
+            transform: translateY(0px);
+        }
+    }
+
+    /* Hover Transitions */
+    .form-control, .submit-btn, .concern-btn, .contact-card {
+        will-change: transform;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Loading States */
+    .loading {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .loading::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.2) 20%,
+            rgba(255, 255, 255, 0.5) 60%,
+            rgba(255, 255, 255, 0) 100%
+        );
+        animation: shimmer 2s infinite;
+    }
+
+    @@keyframes shimmer {
+        from {
+            transform: translateX(-100%);
+        }
+        to {
+            transform: translateX(100%);
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string FormType { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; }
+
+    private ContactForm contactForm = new();
+    private string message = "";
+    private string alertClass = "";
+    private string clientIP = "";
+    private DateTime lastSubmissionTime = DateTime.MinValue;
+    private const int SUBMISSION_COOLDOWN_MINUTES = 5;
+    private const int MAX_SUBMISSIONS_PER_HOUR = 3;
+    private const int SUSPICIOUS_ACTIVITY_THRESHOLD = 20;
+    private const int IP_BAN_DURATION_HOURS = 24;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Clear any cached data
+        await ClearCacheData();
+        await GetClientIP();
+    }
+
+    private async Task ClearCacheData()
+    {
+        try
+        {
+            // Add a timestamp to force a fresh request and clear submission tracking
+            var timestamp = DateTime.UtcNow.Ticks;
+            await Http.GetAsync($"api/contact/clearcache?t={timestamp}");
+            
+            clientIP = "";
+            lastSubmissionTime = DateTime.MinValue;
+            
+            await GetClientIP();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error clearing cache");
+        }
+    }
+
+    private async Task GetClientIP()
+    {
+        try
+        {
+            // Get IP from server-side API
+            var response = await Http.GetAsync("api/contact/get-client-ip");
+            if (response.IsSuccessStatusCode)
+            {
+                var ipResponse = await response.Content.ReadAsStringAsync();
+                if (!string.IsNullOrEmpty(ipResponse))
+                {
+                    clientIP = ipResponse.Trim();
+                    return;
+                }
+            }
+
+            // If server-side fails, try client-side service
+            try
+            {
+                var ipifyResponse = await Http.GetStringAsync("https://api.ipify.org");
+                if (!string.IsNullOrEmpty(ipifyResponse))
+                {
+                    clientIP = ipifyResponse.Trim();
+                    return;
+                }
+            }
+            catch
+            {
+                // Fallback to local IP if external service fails
+                clientIP = "127.0.0.1";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting client IP");
+            clientIP = "127.0.0.1";
+        }
+    }
+
+    private async Task<bool> CheckSubmissionLimits()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(clientIP) || clientIP == "unknown")
+            {
+                // If we don't have a valid IP, try to get it again
+                await GetClientIP();
+                if (string.IsNullOrEmpty(clientIP) || clientIP == "unknown")
+                {
+                    // If still no valid IP, show error
+                    await Swal.FireAsync(new SweetAlertOptions
+                    {
+                        Title = "Error",
+                        Text = "Unable to verify your submission limits. Please try again later.",
+                        Icon = SweetAlertIcon.Error
+                    });
+                    return false;
+                }
+            }
+
+            // Check if IP is banned
+            var isBanned = await Http.GetFromJsonAsync<bool>($"api/contact/check-ip-ban?ip={Uri.EscapeDataString(clientIP)}");
+            if (isBanned)
+            {
+                var banEndTime = await Http.GetFromJsonAsync<DateTime>($"api/contact/get-ban-end-time?ip={Uri.EscapeDataString(clientIP)}");
+                var remainingTime = banEndTime - DateTime.UtcNow;
+                var hours = Math.Ceiling(remainingTime.TotalHours);
+                
+                await Swal.FireAsync(new SweetAlertOptions
+                {
+                    Title = "Access Denied",
+                    Text = $"Your IP has been temporarily banned due to suspicious activity. Please try again in {hours} hours.",
+                    Icon = SweetAlertIcon.Error
+                });
+                return false;
+            }
+
+            // Get submission status
+            var status = await Http.GetFromJsonAsync<SubmissionStatus>($"api/contact/get-submission-count?ip={Uri.EscapeDataString(clientIP)}");
+            if (status == null)
+            {
+                await Swal.FireAsync(new SweetAlertOptions
+                {
+                    Title = "Error",
+                    Text = "Unable to verify your submission limits. Please try again later.",
+                    Icon = SweetAlertIcon.Error
+                });
+                return false;
+            }
+
+            if (!status.CanSubmit)
+            {
+                if (status.Count >= MAX_SUBMISSIONS_PER_HOUR)
+                {
+                    await Swal.FireAsync(new SweetAlertOptions
+                    {
+                        Title = "Submission Limit Reached",
+                        Text = $"You have reached the maximum limit of {MAX_SUBMISSIONS_PER_HOUR} submissions per hour. Please try again later.",
+                        Icon = SweetAlertIcon.Warning
+                    });
+                    return false;
+                }
+
+                var waitTime = status.NextSubmissionTime - DateTime.UtcNow;
+                if (waitTime.TotalMinutes > 0)
+                {
+                    await Swal.FireAsync(new SweetAlertOptions
+                    {
+                        Title = "Please Wait",
+                        Text = $"Please wait {Math.Ceiling(waitTime.TotalMinutes)} minutes before submitting another form.",
+                        Icon = SweetAlertIcon.Warning
+                    });
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking submission limits");
+            await Swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Error",
+                Text = "An error occurred while checking submission limits. Please try again later.",
+                Icon = SweetAlertIcon.Error
+            });
+            return false;
+        }
+    }
+
+    public class SubmissionStatus
+    {
+        public int Count { get; set; }
+        public bool CanSubmit { get; set; }
+        public DateTime LastSubmissionTime { get; set; }
+        public DateTime NextSubmissionTime { get; set; }
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if (!string.IsNullOrEmpty(FormType))
+        {
+            // Create a new form instance to clear previous values
+            contactForm = new ContactForm();
+            
+            // Set the form type based on the route parameter
+            if (Enum.TryParse<BlazorApp1.Shared.Models.FormType>(FormType, true, out var formType))
+            {
+                contactForm.FormType = formType;
+                
+                // Initialize fields based on form type
+                switch (formType)
+                {
+                    case BlazorApp1.Shared.Models.FormType.Request:
+                        contactForm.UrgencyLevel = BlazorApp1.Shared.Models.UrgencyLevel.Low;
+                        contactForm.PreferredDate = DateTime.Today;
+                        contactForm.RequestType = BlazorApp1.Shared.Models.RequestType.MaintenanceRequest;
+                        break;
+                    case BlazorApp1.Shared.Models.FormType.Concern:
+                        contactForm.PriorityLevel = BlazorApp1.Shared.Models.PriorityLevel.Low;
+                        contactForm.Location = string.Empty;
+                        contactForm.ConcernCategory = BlazorApp1.Shared.Models.ConcernCategory.NoiseComplaint;
+                        break;
+                    case BlazorApp1.Shared.Models.FormType.Suggestion:
+                        contactForm.SuggestionCategory = string.Empty;
+                        break;
+                }
+            }
+            else
+            {
+                Logger.LogWarning($"Invalid form type in URL: {FormType}");
+                NavigationManager.NavigateTo("/ContactUs");
+            }
+        }
+    }
+
+    private async Task NavigateToClientForm(string formType)
+    {
+        if (string.IsNullOrEmpty(formType))
+        {
+            return;
+        }
+
+        try
+        {
+            // Validate form type
+            if (!Enum.TryParse<BlazorApp1.Shared.Models.FormType>(formType, true, out _))
+            {
+                throw new ArgumentException($"Invalid form type: {formType}");
+            }
+
+            var authState = await AuthState;
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated && user.IsInRole("Client"))
+            {
+                // Navigate to the SubmitForm page for clients
+                NavigationManager.NavigateTo($"/client/submit/{formType.ToLowerInvariant()}");
+            }
+            else
+            {
+                // For non-clients, show the form in ContactUs
+                contactForm = new ContactForm();
+                NavigationManager.NavigateTo($"/ContactUs/{formType.ToLowerInvariant()}");
+            }
+            
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error navigating to form");
+            throw;
+        }
+    }
+
+    private async Task ShowFormButtons()
+    {
+        try
+        {
+            FormType = null;
+            contactForm = new ContactForm();
+            NavigationManager.NavigateTo("/ContactUs");
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error showing form buttons");
+            throw;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            // Ensure we have the client IP
+            if (string.IsNullOrEmpty(clientIP))
+            {
+                await GetClientIP();
+            }
+
+            // Check submission limits before proceeding
+            if (!await CheckSubmissionLimits())
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(FormType))
+            {
+                throw new InvalidOperationException("Form type is required");
+            }
+
+            // Set form type based on URL parameter
+            if (Enum.TryParse<BlazorApp1.Shared.Models.FormType>(FormType, true, out var formType))
+            {
+                contactForm.FormType = formType;
+                contactForm.ClientIP = clientIP;
+                contactForm.SubmissionTimestamp = DateTime.UtcNow;
+
+                // Set default values for required fields
+                contactForm.Category = contactForm.Category ?? string.Empty;
+                contactForm.Location = contactForm.Location ?? string.Empty;
+                contactForm.SuggestionCategory = contactForm.SuggestionCategory ?? string.Empty;
+
+                // Ensure all required fields are set based on form type
+                switch (formType)
+                {
+                    case BlazorApp1.Shared.Models.FormType.Request:
+                        contactForm.UrgencyLevel = contactForm.UrgencyLevel ?? UrgencyLevel.Low;
+                        contactForm.PreferredDate = contactForm.PreferredDate ?? DateTime.Today.AddDays(1);
+                        contactForm.RequestType = contactForm.RequestType ?? RequestType.MaintenanceRequest;
+                        contactForm.Category = string.IsNullOrEmpty(contactForm.Category) ? "General" : contactForm.Category;
+                        break;
+
+                    case BlazorApp1.Shared.Models.FormType.Concern:
+                        contactForm.PriorityLevel = contactForm.PriorityLevel ?? PriorityLevel.Low;
+                        contactForm.Location = string.IsNullOrEmpty(contactForm.Location) ? "Not Specified" : contactForm.Location;
+                        contactForm.ConcernCategory = contactForm.ConcernCategory ?? ConcernCategory.Other;
+                        contactForm.Category = string.IsNullOrEmpty(contactForm.Category) ? contactForm.ConcernCategory.ToString() : contactForm.Category;
+                        break;
+
+                    case BlazorApp1.Shared.Models.FormType.Suggestion:
+                        contactForm.SuggestionCategory = string.IsNullOrEmpty(contactForm.SuggestionCategory) ? "General" : contactForm.SuggestionCategory;
+                        contactForm.Category = string.IsNullOrEmpty(contactForm.Category) ? contactForm.SuggestionCategory : contactForm.Category;
+                        break;
+                }
+
+                // Log the form data before submission
+                Logger.LogInformation("Submitting form with data: {@ContactForm}", contactForm);
+
+                // Send the contact form to the API
+                var response = await Http.PostAsJsonAsync("api/contact/create", contactForm);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var options = new SweetAlertOptions
+                    {
+                        Title = "Success",
+                        Text = $"Your {formType.ToString().ToLowerInvariant()} has been submitted successfully!",
+                        Icon = SweetAlertIcon.Success,
+                        Timer = 2000,
+                        ShowConfirmButton = false
+                    };
+                    await Swal.FireAsync(options);
+                    NavigationManager.NavigateTo("/ContactUs");
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Logger.LogError($"Failed to submit form: {error}");
+                    
+                    var options = new SweetAlertOptions
+                    {
+                        Title = "Error",
+                        Text = $"Failed to submit form: {error}",
+                        Icon = SweetAlertIcon.Error,
+                        ShowConfirmButton = true
+                    };
+                    await Swal.FireAsync(options);
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid form type: {FormType}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error submitting form");
+            
+            var options = new SweetAlertOptions
+            {
+                Title = "Error",
+                Text = ex.Message,
+                Icon = SweetAlertIcon.Error,
+                ShowConfirmButton = true
+            };
+            await Swal.FireAsync(options);
+        }
+    }
+}

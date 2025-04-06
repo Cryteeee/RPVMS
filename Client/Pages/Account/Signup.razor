@@ -1,0 +1,594 @@
+﻿@page "/signup"
+@using System.ComponentModel.DataAnnotations
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Models
+@using CurrieTechnologies.Razor.SweetAlert2
+@using System.Net
+@using System.Text.Json
+@using System.Text
+@using System.Text.RegularExpressions
+@using BlazorApp1.Client.Services
+@layout NoMenuLayout
+@inject SweetAlertService swal
+@inject IAccountService AccountService
+@inject NavigationManager _navigationManager
+
+<HeadContent>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+</HeadContent>
+
+<style>
+    body {
+        background-image: url(/B3.jpg);
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-size: cover;
+        background-position: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .signup-container {
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 1rem;
+        overflow: hidden;
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    .signup-card {
+        background-color: rgba(250,250,250,0.3);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        border-radius: 15px;
+        padding: 1.5rem;
+        width: 100%;
+        max-width: 400px;
+        max-height: 90vh;
+        overflow-y: auto;
+        transform: translateY(0);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        animation: slideUp 0.8s ease-out;
+    }
+
+    .signup-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+
+    .logo {
+        width: auto;
+        height: 6.5rem;
+        margin-bottom: 1rem;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        animation: pulse 2s infinite;
+    }
+
+    .signup-title {
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        color: #333;
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: 3px;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        text-transform: uppercase;
+        position: relative;
+        animation: fadeInDown 0.8s ease-out;
+    }
+
+    .signup-title::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 50px;
+        height: 3px;
+        background: #F9B42D;
+        border-radius: 3px;
+    }
+
+    .form-label {
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        letter-spacing: 2px;
+        font-weight: 500;
+        color: #333;
+        transform: translateX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .form-control {
+        background-color: rgba(255,255,255,0.9);
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        padding-right: 3rem;
+        transition: all 0.3s ease;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        width: 100%;
+        transform: translateX(0);
+    }
+
+    /* Hide browser's default password toggle */
+    input[type="password"]::-ms-reveal,
+    input[type="password"]::-ms-clear,
+    input[type="password"]::-webkit-contacts-auto-fill-button,
+    input[type="password"]::-webkit-credentials-auto-fill-button {
+        display: none !important;
+    }
+
+    input[type="password"]::-webkit-inner-spin-button,
+    input[type="password"]::-webkit-outer-spin-button,
+    input[type="password"]::-webkit-search-cancel-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .password-field {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 1rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        z-index: 2;
+        width: 24px;
+        height: 24px;
+    }
+
+    .password-toggle:hover {
+        color: #F9B42D;
+    }
+
+    .password-toggle:focus {
+        outline: none;
+    }
+
+    .password-toggle i {
+        font-size: 1.2rem;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .form-control:focus {
+        background-color: #fff;
+        box-shadow: 0 0 0 3px rgba(249, 180, 45, 0.25);
+        border-color: #F9B42D;
+        transform: translateX(0);
+    }
+
+    .btn-signup {
+        background-color: #F9B42D;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        font-weight: 600;
+        letter-spacing: 2px;
+        padding: 0.75rem 2rem;
+        text-transform: uppercase;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin-bottom: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-signup::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: 0.5s;
+    }
+
+    .btn-signup:hover::before {
+        left: 100%;
+    }
+
+    .btn-signup:hover {
+        background-color: #e6a012;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(249, 180, 45, 0.3);
+    }
+
+    .btn-signup:active {
+        transform: translateY(0);
+    }
+
+    .login-text {
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        letter-spacing: 2px;
+        color: #333;
+        text-align: center;
+        margin: 1.5rem 0;
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        animation: shake 0.5s ease-in-out;
+    }
+
+    /* Back Button Styles */
+    .back-button {
+        position: fixed;
+        top: 2rem;
+        left: 2rem;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        color: #000;
+        text-decoration: none;
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        animation: slideInLeft 0.8s ease-out;
+    }
+
+    .back-button i {
+        transition: transform 0.3s ease;
+    }
+
+    .back-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px) translateX(5px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .back-button:hover i {
+        transform: translateX(-5px);
+    }
+
+    @@media (max-width: 768px) {
+        .back-button {
+            top: 1rem;
+            left: 1rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem !important;
+        animation: fadeIn 0.8s ease-out;
+        animation-fill-mode: both;
+    }
+
+    .mb-3:nth-child(1) { animation-delay: 0.1s; }
+    .mb-3:nth-child(2) { animation-delay: 0.2s; }
+    .mb-3:nth-child(3) { animation-delay: 0.3s; }
+    .mb-3:nth-child(4) { animation-delay: 0.4s; }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @@keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    @@keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
+    @@media (max-width: 576px) {
+        .signup-card {
+            padding: 1.5rem;
+        }
+
+        .logo {
+            height: 7rem;
+        }
+
+        .signup-title {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+
+<a href="/" class="back-button">
+    <i class="fas fa-arrow-left"></i>
+    Back to Home
+</a>
+
+<div class="signup-container">
+    <div class="text-center">
+        <img src="/LogoA2.png" alt="Roosevelt Park Village" class="logo" />
+        <div class="signup-card">
+            <h4 class="signup-title">Sign Up</h4>
+            <EditForm EditContext="@editContext" OnSubmit="@RegisterAsync">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <InputText id="username" class="form-control" @bind-Value="registration.Username" placeholder="Enter username" />
+                    <ValidationMessage For="@(() => registration.Username)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="contactNumber" class="form-label">Contact Number</label>
+                    <InputText id="contactNumber" class="form-control" @bind-Value="registration.ContactNumber" 
+                              @oninput="ValidateContactNumber" placeholder="09XXXXXXXXX" />
+                    <ValidationMessage For="@(() => registration.ContactNumber)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <InputText id="email" class="form-control" @bind-Value="registration.Email" type="email" placeholder="Enter email" />
+                    <ValidationMessage For="@(() => registration.Email)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="password-field">
+                        <InputText id="password" class="form-control" @bind-Value="registration.Password" type="@(showPassword ? "text" : "password")" placeholder="Enter password" autocomplete="new-password" />
+                        <button type="button" class="password-toggle" @onclick="() => { showPassword = !showPassword; StateHasChanged(); }" @onclick:preventDefault @onclick:stopPropagation tabindex="-1">
+                            <i class="bi @(showPassword ? "bi-eye-slash-fill" : "bi-eye-fill")" />
+                        </button>
+                    </div>
+                    <ValidationMessage For="@(() => registration.Password)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="confirmPassword" class="form-label">Confirm Password</label>
+                    <div class="password-field">
+                        <InputText id="confirmPassword" class="form-control" @bind-Value="registration.ConfirmPassword" type="@(showConfirmPassword ? "text" : "password")" placeholder="Confirm password" autocomplete="new-password" />
+                        <button type="button" class="password-toggle" @onclick="() => { showConfirmPassword = !showConfirmPassword; StateHasChanged(); }" @onclick:preventDefault @onclick:stopPropagation tabindex="-1">
+                            <i class="bi @(showConfirmPassword ? "bi-eye-slash-fill" : "bi-eye-fill")" />
+                        </button>
+                    </div>
+                    <ValidationMessage For="@(() => registration.ConfirmPassword)" />
+                </div>
+
+                <button type="submit" class="btn-signup" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span>Please wait...</span>
+                    }
+                    else
+                    {
+                        <span>Sign Up</span>
+                    }
+                </button>
+            </EditForm>
+            <div class="login-text">ALREADY HAVE AN ACCOUNT?</div>
+            <button class="btn-signup" @onclick="NavigateToLogin" disabled="@isSubmitting">Login</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private UserRegistrationDto registration = new UserRegistrationDto();
+    private EditContext? editContext;
+    private bool isSubmitting = false;
+    private bool showPassword = false;
+    private bool showConfirmPassword = false;
+
+    protected override void OnInitialized()
+    {
+        editContext = new EditContext(registration);
+        base.OnInitialized();
+    }
+
+    private async Task RegisterAsync()
+    {
+        if (isSubmitting) return;
+
+        try
+        {
+            isSubmitting = true;
+            StateHasChanged();
+
+            // Basic validation
+            if (string.IsNullOrWhiteSpace(registration.Username) || 
+                string.IsNullOrWhiteSpace(registration.Email) || 
+                string.IsNullOrWhiteSpace(registration.Password) ||
+                string.IsNullOrWhiteSpace(registration.ContactNumber))
+            {
+                await swal.FireAsync("Error", "Please fill in all required fields.", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Password validation
+            if (registration.Password != registration.ConfirmPassword)
+            {
+                await swal.FireAsync("Error", "Passwords do not match.", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Validate the form using DataAnnotations
+            var validationResults = new List<ValidationResult>();
+            var validationContext = new ValidationContext(registration);
+            if (!Validator.TryValidateObject(registration, validationContext, validationResults, true))
+            {
+                var errorMessages = validationResults.Select(r => r.ErrorMessage).ToList();
+                await swal.FireAsync("Validation Error", string.Join("\n", errorMessages), SweetAlertIcon.Error);
+                return;
+            }
+
+            // Check if trying to register as SuperAdmin
+            if (registration.Username.ToLower() == "superadmin" || 
+                registration.Email.ToLower().Contains("superadmin"))
+            {
+                await swal.FireAsync("Prohibited", "Cannot register SuperAdmin account through normal registration.", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Check email availability
+            var emailCheckResponse = await AccountService.CheckEmailAvailability(registration.Email);
+            if (!emailCheckResponse.IsSuccess)
+            {
+                await swal.FireAsync("Error", emailCheckResponse.Message, SweetAlertIcon.Error);
+                return;
+            }
+
+            // Check contact number availability
+            if (!string.IsNullOrEmpty(registration.ContactNumber))
+            {
+                var contactCheckResponse = await AccountService.CheckContactNumberAvailability(registration.ContactNumber);
+                if (!contactCheckResponse.IsSuccess)
+                {
+                    await swal.FireAsync("Error", "This contact number is already registered.", SweetAlertIcon.Error);
+                    return;
+                }
+            }
+
+            // Attempt registration
+            var response = await AccountService.Register(registration);
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync(
+                    "Success", 
+                    "Registration successful! Please wait for an administrator to activate your account before logging in.", 
+                    SweetAlertIcon.Success
+                );
+                _navigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                string errorMessage = !string.IsNullOrEmpty(response.Message) 
+                    ? response.Message 
+                    : "Registration failed. Please try again.";
+                await swal.FireAsync("Error", errorMessage, SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Registration error: {ex}");
+            await swal.FireAsync(
+                "Error",
+                "An unexpected error occurred during registration. Please try again later.",
+                SweetAlertIcon.Error
+            );
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateToLogin()
+    {
+        _navigationManager.NavigateTo("/Login");
+    }
+
+    private async Task ValidateContactNumber(ChangeEventArgs e)
+    {
+        var number = e.Value?.ToString();
+        if (string.IsNullOrEmpty(number))
+        {
+            registration.ContactNumber = null;
+            return;
+        }
+
+        // Remove any non-digit characters
+        number = new string(number.Where(char.IsDigit).ToArray());
+
+        // Enforce 09 prefix
+        if (number.Length >= 2 && !number.StartsWith("09"))
+        {
+            number = "09" + number.TrimStart('0', '9');
+        }
+
+        // Limit to 11 digits
+        if (number.Length > 11)
+        {
+            number = number.Substring(0, 11);
+            await swal.FireAsync("Invalid Format", "Contact number cannot exceed 11 digits", SweetAlertIcon.Warning);
+        }
+
+        registration.ContactNumber = number;
+        StateHasChanged();
+
+        // Validate complete numbers
+        if (number.Length == 11)
+        {
+            if (!Regex.IsMatch(number, @"^09\d{9}$"))
+            {
+                await swal.FireAsync("Invalid Format", "Contact number must start with '09' and contain exactly 11 digits", SweetAlertIcon.Warning);
+                registration.ContactNumber = null;
+                StateHasChanged();
+                return;
+            }
+
+            var response = await AccountService.CheckContactNumberAvailability(number);
+            if (!response.IsSuccess)
+            {
+                await swal.FireAsync("Invalid", "This contact number is already registered", SweetAlertIcon.Warning);
+                registration.ContactNumber = null;
+                StateHasChanged();
+            }
+        }
+    }
+} 

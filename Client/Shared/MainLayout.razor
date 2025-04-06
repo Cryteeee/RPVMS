@@ -1,0 +1,446 @@
+﻿@using BlazorApp1.Client.Auth
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Client.Shared
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Models
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
+@inject AuthenticationStateProvider _authStateProvider
+@inject NavigationManager _navigationManager
+@inject ILocalStorageService _localStorageService
+@inject IAccountService AccountService
+@inject ProfilePhotoService ProfilePhotoService
+@inject INotificationService NotificationService
+@inject HttpClient Http
+
+<style>
+    .page {
+        position: relative;
+        display: flex;
+        min-height: 100vh;
+        background: #f5f5f5;
+    }
+
+    main {
+        position: relative;
+        width: calc(100% - 320px);
+        margin-left: 320px;
+        padding: 20px;
+        transition: all 0.3s ease;
+    }
+
+    main.sidebar-collapsed {
+        width: calc(100% - 130px);
+        margin-left: 130px;
+    }
+
+    .content {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        min-height: calc(100vh - 40px);
+    }
+
+    @@media screen and (max-width: 900px) {
+        main {
+            width: calc(100% - 130px);
+            margin-left: 130px;
+        }
+    }
+
+    @@media screen and (max-width: 500px) {
+        main {
+            width: 100%;
+            margin-left: 0;
+            padding: 10px;
+        }
+    }
+    /*Footer*/
+    footer {
+        bottom: 0;
+        right: 0;
+        left: 0;
+        padding: 2rem 1rem;
+        backdrop-filter: blur(10px);
+        border-top: 1px solid rgba(0,0,0,0.06);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: rgba(255,200,44,1);
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.03);
+        z-index: 0;
+        min-height: auto;
+        width: 100%;
+    }
+
+        footer .footer-content {
+            display: flex;
+            align-items: flex-start;
+            margin: 0 auto;
+            width: 100%;
+            justify-content: space-between;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        footer .footer-section {
+            flex: 1;
+            min-width: 250px;
+            max-width: 350px;
+        }
+
+        footer .footer-title {
+            color: #212529;
+            font-size: clamp(1rem, 2vw, 1.1rem);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        footer .footer-title i {
+            color: #FFC107;
+        }
+
+        footer .social-links {
+            display: flex;
+            text-decoration: none;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        footer .social-link {
+            color: #212529;
+            font-size: clamp(1rem, 2vw, 1.2rem);
+            transition: all 0.3s ease;
+        }
+
+        footer .social-link:hover {
+            color: #000;
+            transform: translateY(-2px);
+        }
+
+        footer .footer-contact {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        footer .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #666;
+            font-size: clamp(0.875rem, 1.5vw, 1rem);
+        }
+
+        footer .contact-item i {
+            color: #FFC107;
+        }
+
+        footer .footer-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        footer .footer-link {
+            color: #666;
+            text-decoration: none;
+            font-size: clamp(0.875rem, 1.5vw, 1rem);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        footer .footer-link:hover {
+            color: #000;
+            transform: translateX(5px);
+        }
+
+        footer p {
+            font-size: clamp(0.875rem, 1.5vw, 1rem);
+            line-height: 1.6;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(255,200,44,1);
+            padding: clamp(0.75rem, 2vw, 1rem);
+            width: 100%;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            gap: clamp(1rem, 2vw, 1.5rem);
+        }
+
+        .footer-policies {
+            display: flex;
+            gap: clamp(1rem, 2vw, 1.5rem);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        footer .policy-link {
+            color: #666;
+            text-decoration: none;
+            font-size: clamp(0.75rem, 1.2vw, 0.85rem);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            padding: 0.25rem 0;
+        }
+
+        footer .policy-link:hover {
+            color: #000;
+            transform: translateY(-1px);
+        }
+
+        footer .footer-copyright {
+            font-size: clamp(0.75rem, 1.2vw, 0.85rem);
+            color: #666;
+            white-space: nowrap;
+        }
+
+    .logo {
+        width: auto;
+        height: 3.5rem;
+        margin-bottom: 0;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+    }
+
+    @@media screen and (max-width: 950px) {
+        footer {
+            padding: 1.5rem 1rem;
+        }
+
+            footer .footer-content {
+                flex-direction: column;
+                gap: 2rem;
+            }
+
+            footer .footer-section {
+                width: 100%;
+                max-width: 100%;
+            }
+
+            footer .footer-title {
+                font-size: clamp(1.1rem, 3vw, 1.2rem);
+            }
+
+            footer p {
+                font-size: clamp(0.9rem, 2vw, 1rem);
+            }
+
+            footer .footer-link {
+                font-size: clamp(0.9rem, 2vw, 1rem);
+            }
+
+            footer .contact-item {
+                font-size: clamp(0.9rem, 2vw, 1rem);
+            }
+
+            footer .footer-bottom {
+                flex-direction: column;
+                gap: clamp(0.75rem, 2vw, 1rem);
+                text-align: center;
+                padding: clamp(0.75rem, 2vw, 1rem) 0;
+            }
+
+            footer .footer-policies {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: clamp(0.75rem, 1.5vw, 1rem);
+            }
+
+            footer .policy-link {
+                font-size: clamp(0.8rem, 1.8vw, 0.9rem);
+                padding: 0.25rem 0.5rem;
+            }
+
+            footer .footer-copyright {
+                font-size: clamp(0.8rem, 1.8vw, 0.9rem);
+            }
+
+        .logo {
+            height: 3rem;
+        }
+    }
+
+    @@media screen and (max-width: 480px) {
+        footer {
+            padding: 1rem 0.5rem;
+        }
+
+            footer .footer-section {
+                min-width: 100%;
+            }
+
+            footer .footer-title {
+                font-size: clamp(1rem, 2.5vw, 1.1rem);
+            }
+
+            footer p {
+                font-size: clamp(0.85rem, 1.8vw, 0.95rem);
+            }
+
+            footer .footer-link {
+                font-size: clamp(0.85rem, 1.8vw, 0.95rem);
+            }
+
+            footer .contact-item {
+                font-size: clamp(0.85rem, 1.8vw, 0.95rem);
+            }
+
+            footer .social-link {
+                font-size: clamp(0.9rem, 2vw, 1.1rem);
+            }
+
+            footer .social-links {
+                justify-content: center;
+            }
+
+            footer .footer-bottom {
+                padding: clamp(0.5rem, 1.5vw, 0.75rem) 0;
+                gap: clamp(0.5rem, 1.5vw, 0.75rem);
+            }
+
+            footer .footer-policies {
+                flex-direction: column;
+                gap: clamp(0.5rem, 1vw, 0.75rem);
+            }
+
+            footer .policy-link {
+                font-size: clamp(0.75rem, 1.5vw, 0.85rem);
+                padding: 0.25rem 0;
+            }
+
+            footer .footer-copyright {
+                font-size: clamp(0.75rem, 1.5vw, 0.85rem);
+            }
+
+        .logo {
+            height: 2.5rem;
+        }
+    }
+</style>
+
+<div class="page">
+    <NavMenu />
+    <main>
+        <article class="content">
+            @Body
+        </article>
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3 class="footer-title">
+                        <i class="bi bi-building"></i>
+                        About Us
+                    </h3>
+                    <p style="color: #666; line-height: 1.6;">
+                        Roosevelt Park Village Management System provides efficient and modern solutions for community management, ensuring a seamless experience for all residents.
+                    </p>
+                    <div class="social-links">
+                        <a href="#" class="social-link"><i class="bi bi-facebook"></i></a>
+                        <a href="#" class="social-link"><i class="bi bi-twitter"></i></a>
+                        <a href="#" class="social-link"><i class="bi bi-instagram"></i></a>
+                        <a href="#" class="social-link"><i class="bi bi-linkedin"></i></a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h3 class="footer-title">
+                        <i class="bi bi-link-45deg"></i>
+                        Quick Links
+                    </h3>
+                    <ul class="footer-links">
+                        <li><a href="/about" class="footer-link"><i class="bi bi-chevron-right"></i>About Us</a></li>
+                        <li><a href="/services" class="footer-link"><i class="bi bi-chevron-right"></i>Our Services</a></li>
+                        <li><a href="/contact" class="footer-link"><i class="bi bi-chevron-right"></i>Contact Us</a></li>
+                        <li><a href="/faq" class="footer-link"><i class="bi bi-chevron-right"></i>FAQs</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3 class="footer-title">
+                        <i class="bi bi-envelope"></i>
+                        Contact Info
+                    </h3>
+                    <div class="footer-contact">
+                        <div class="contact-item">
+                            <i class="bi bi-geo-alt"></i>
+                            <span>123 Roosevelt Park, Manila, Philippines</span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="bi bi-telephone"></i>
+                            <span>+63 123 456 7890</span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="bi bi-envelope"></i>
+                            <span>info@rooseveltpark.com</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+        <div class="footer-bottom">
+            <div class="footer-copyright">
+                © @DateTime.Now.Year Roosevelt Park Village. All rights reserved.
+            </div>
+            <div class="footer-policies">
+                <a href="/privacy" class="policy-link">Privacy Policy</a>
+                <a href="/terms" class="policy-link">Terms of Service</a>
+                <a href="/cookies" class="policy-link">Cookie Policy</a>
+            </div>
+        </div>
+    </main>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await _authStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            await InitializeNotifications(user);
+            await NotificationService.StartAsync();
+        }
+    }
+
+    public async void Dispose()
+    {
+        await NotificationService.StopAsync();
+    }
+
+    private async Task InitializeNotifications(ClaimsPrincipal user)
+    {
+        try
+        {
+            // First initialize from storage
+            await NotificationService.InitializeAsync();
+
+            // Get unread messages from the API
+            var response = await Http.GetFromJsonAsync<Response<List<BoardMessageDto>>>("api/BoardMessage/unread");
+            if (response != null && response.IsSuccess)
+            {
+                var currentUserId = int.Parse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+                
+                // Add unread messages to notification service
+                foreach (var msg in response.Data)
+                {
+                    await NotificationService.AddNotification(msg);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing notifications: {ex.Message}");
+        }
+    }
+}

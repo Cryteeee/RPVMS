@@ -1,0 +1,1751 @@
+@page "/board-messages"
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Shared.Enums
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR.Client
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IBoardMessageService BoardMessageService
+@inject SweetAlertService Swal
+@inject IJSRuntime JSRuntime
+@inject INotificationService NotificationService
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject ISecureStorageService SecureStorage
+@implements IAsyncDisposable
+
+<PageTitle>Board Messages</PageTitle>
+
+<div class="container-fluid">
+    <div class="message-board-card">
+                <div class="card-header">
+            <div class="card-title">
+                <div class="title-section">
+                    <i class="bi bi-chat-square-dots"></i>
+                    <span>Board Messages</span>
+                </div>
+                <div class="stats-section">
+                    <div class="total-count">
+                        <i class="bi bi-chat-dots"></i>
+                                <span>@messages.Count Total</span>
+                            </div>
+                            @if (currentUserRole == "SuperAdmin")
+                            {
+                        <button class="clear-button" @onclick="ClearAllMessages">
+                            <i class="bi bi-trash"></i>
+                            <span>Clear All Messages</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                    <div class="filter-section">
+                            <button class="filter-btn @(currentFilter == FilterType.All ? "active" : "")" 
+                                    @onclick="async () => await FilterMessages(FilterType.All)">
+                    <i class="bi bi-collection"></i>
+                                All Messages
+                            </button>
+                            <button class="filter-btn @(currentFilter == FilterType.Emergency ? "active" : "")"
+                                    @onclick="async () => await FilterMessages(FilterType.Emergency)">
+                    <i class="bi bi-exclamation-triangle"></i>
+                                Emergency
+                            </button>
+                            <button class="filter-btn @(currentFilter == FilterType.Priority ? "active" : "")"
+                                    @onclick="async () => await FilterMessages(FilterType.Priority)">
+                    <i class="bi bi-star"></i>
+                                Priority
+                            </button>
+                            <button class="filter-btn @(currentFilter == FilterType.Announcement ? "active" : "")"
+                                    @onclick="async () => await FilterMessages(FilterType.Announcement)">
+                    <i class="bi bi-megaphone"></i>
+                                Announcement
+                            </button>
+                        </div>
+                    </div>
+
+        <div class="messages-container" id="messageContainer" @ref="messageContainer">
+                        @if (isLoading)
+                        {
+                <div class="empty-state">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p>Loading messages...</p>
+                            </div>
+                        }
+            else if (!messages.Any())
+            {
+                <div class="empty-state">
+                    <i class="bi bi-chat-square-text"></i>
+                    <p>No messages yet. Be the first to post!</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="messages-list">
+                                    @foreach (var message in messages.OrderBy(m => m.Timestamp))
+                                    {
+                        <div class="message-wrapper @(message.IsCurrentUser ? "sent" : "received") @message.Priority.ToString().ToLower()">
+                                            <div class="avatar-circle" style="background-color: @GetUserColor(message.Role);">
+                                                @if (!string.IsNullOrEmpty(message.ProfilePicture))
+                                                {
+                                    <img src="@message.ProfilePicture" alt="@message.UserName" />
+                                                }
+                                                else
+                                                {
+                                    <img src="images/ProfilePic.svg" alt="@message.UserName" />
+                                                }
+                                            </div>
+                            <div class="message-group">
+                                @if (!message.IsCurrentUser)
+                                {
+                                                            <div class="user-name">@message.UserName</div>
+                                }
+                                <div class="message-card">
+                                                                @if (message.Priority != MessagePriority.Normal)
+                                                                {
+                                        <div class="priority-label">
+                                            <i class="bi @GetPriorityIcon(message.Priority) priority-icon"></i>
+                                            <span>@message.Priority</span>
+                                                            </div>
+                                    }
+                                                    @if (message.Content.StartsWith("Replying to @"))
+                                                    {
+                                                        var replyParts = message.Content.Split(": ", 2);
+                                                        if (replyParts.Length == 2)
+                                                        {
+                                                            <div class="replied-message">
+                                                                <div class="replied-header">
+                                                    <i class="bi bi-reply"></i>
+                                                                    @replyParts[0]
+                                                                </div>
+                                                                <div class="message-text">@replyParts[1]</div>
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                            <div class="message-content">@message.Content</div>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="message-content">@message.Content</div>
+                                                    }
+                                                </div>
+                                <div class="message-meta">
+                                    <span class="message-time">@FormatMessageTime(message.Timestamp)</span>
+                                                </div>
+                                                @if (!message.IsCurrentUser)
+                                                {
+                                                    <div class="message-actions">
+                                        <button class="reply-button" @onclick="() => ReplyToMessage(message)">
+                                            <i class="bi bi-reply"></i>
+                                            Reply
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                        @if (showGoToPresent)
+                        {
+                            <button class="back-to-present visible" @onclick="ScrollToBottom">
+                                <i class="bi bi-arrow-down-circle"></i>
+                                See new messages
+                            </button>
+                        }
+                    </div>
+
+        <div class="message-input-container @(replyingTo != null ? "replying" : "")">
+                                @if (replyingTo != null)
+                                {
+                <div class="reply-preview-header">
+                    <div class="reply-info">
+                        <span class="reply-to-text">Replying to</span>
+                        <span class="reply-name">@replyingTo.UserName</span>
+                    </div>
+                    <button class="close-reply" @onclick="CancelReply" title="Cancel reply">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                    </div>
+                                }
+            <div class="input-wrapper">
+                <select class="priority-select" @bind="selectedPriority">
+                                    @foreach (var priority in Enum.GetValues(typeof(MessagePriority)))
+                                    {
+                                        <option value="@priority">@priority</option>
+                                    }
+                                </select>
+                <div class="input-group">
+                    <textarea class="custom-textarea" 
+                                          placeholder="Type your message here..." 
+                                          @bind="newMessage"
+                                          @bind:event="oninput"
+                                          @onkeydown="HandleKeyPress">
+                                </textarea>
+                    <button class="send-button" @onclick="PostMessage">
+                                    <i class="bi bi-send"></i>
+                                </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .container-fluid {
+        padding: 0;
+        height: 100vh;
+        background-color: #ffffff;
+    }
+
+    .message-board-card {
+        border: none;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #ffffff;
+        overflow: hidden;
+        margin: 0;
+        box-shadow: none;
+    }
+
+    .card-header {
+        background-color: #fff;
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+        padding: 1.25rem 1.5rem;
+        z-index: 10;
+        flex-shrink: 0;
+    }
+
+    .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        background-color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        position: relative;
+    }
+
+    .empty-state {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        padding: 2rem;
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #dee2e6;
+    }
+
+    .empty-state p {
+        font-size: 1rem;
+        color: #6c757d;
+    }
+
+    .message-input-container {
+        position: relative;
+        padding: 1rem 1.5rem;
+        background-color: white;
+        border-top: 1px solid rgba(0,0,0,0.08);
+        z-index: 10;
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+
+    .message-input-container.replying {
+        padding-top: 3.5rem;
+    }
+
+    .input-wrapper {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        transition: all 0.3s ease;
+    }
+
+    .input-group {
+        flex: 1;
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-end;
+        position: relative;
+    }
+
+    .priority-select {
+        width: auto;
+        min-width: 120px;
+        height: 45px;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 1.5rem;
+        padding: 0 1rem;
+        background-color: #f8f9fa;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 1em;
+        padding-right: 2.5rem;
+    }
+
+    .priority-select:focus {
+        outline: none;
+        border-color: #ffd700;
+        background-color: #ffffff;
+        box-shadow: 0 2px 12px rgba(255, 215, 0, 0.1);
+    }
+
+    .custom-textarea {
+        flex: 1;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 1.5rem;
+        resize: none;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+        height: 45px;
+        min-height: 45px;
+        max-height: 120px;
+        overflow: hidden;
+    }
+
+    .custom-textarea:focus {
+        outline: none;
+        border-color: #ffd700;
+        background: #ffffff;
+        box-shadow: 0 2px 12px rgba(255, 215, 0, 0.1);
+        height: auto;
+        overflow: auto;
+    }
+
+    .send-button {
+        width: 45px;
+        height: 45px;
+        min-width: 45px;
+        border-radius: 50%;
+        background: #ffd700;
+        color: #1a1a1a;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        padding: 0;
+        flex-shrink: 0;
+        transform-origin: center;
+    }
+
+    .send-button:hover {
+        transform: scale(1.1) rotate(15deg);
+        background: #ffc107;
+        box-shadow: 0 2px 12px rgba(255, 215, 0, 0.2);
+    }
+
+    .send-button:active {
+        transform: scale(0.95) rotate(0deg);
+    }
+
+    .send-button i {
+        transition: all 0.3s ease;
+    }
+
+    .send-button:hover i {
+        transform: translateX(2px);
+    }
+
+    /* Header styles */
+    .card-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        margin: 0;
+    }
+
+    .title-section {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.5rem;
+        color: #1a1a1a;
+    }
+
+    .stats-section {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .total-count {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        font-size: 0.95rem;
+    }
+
+    .clear-button {
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        background: #dc3545;
+        color: white;
+        border: none;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .filter-section {
+        margin-top: 1rem;
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .filter-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.25rem;
+        border-radius: 2rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border: none;
+        background: #f8f9fa;
+        color: #1a1a1a;
+        transition: all 0.2s ease;
+    }
+
+    .filter-btn.active {
+        background: #ffd700;
+        color: #1a1a1a;
+    }
+
+    .filter-btn:hover {
+        background: #ffeeba;
+    }
+
+    .filter-btn i {
+        font-size: 1rem;
+    }
+
+    /* Mobile responsiveness */
+    @@media (max-width: 768px) {
+        .container-fluid {
+            padding: 0;
+        }
+
+        .card-header {
+        padding: 1rem;
+        }
+
+        .message-input-container {
+            padding: 0.75rem 1rem;
+        }
+
+        .message-input-container.replying {
+            padding-top: 3.25rem;
+        }
+
+        .filter-section {
+            margin-top: 0.75rem;
+            gap: 0.5rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .title-section {
+            font-size: 1.25rem;
+        }
+
+        .reply-preview-header {
+            padding: 0.75rem 1rem;
+        }
+
+        .input-wrapper {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .priority-select {
+            width: 100%;
+            max-width: none;
+        }
+    }
+
+    /* Message List and Container Spacing */
+    .messages-list {
+        display: flex;
+        flex-direction: column;
+        padding: 1.5rem;
+        gap: 1.5rem;
+    }
+
+    .message-wrapper {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        max-width: 85%;
+        position: relative;
+        margin: 0;
+    }
+
+    /* Avatar Styling */
+    .avatar-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 2px solid rgba(0,0,0,0.1);
+    }
+
+    .message-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .user-name {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #4a4a4a;
+        margin-bottom: 0.25rem;
+    }
+
+    .message-card {
+        padding: 0.75rem 1rem;
+        border-radius: 18px;
+        position: relative;
+        max-width: 100%;
+        word-wrap: break-word;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        margin: 0;
+    }
+
+    .message-content {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+
+    .message-text {
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .message-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: #65676b;
+        margin-top: 0.25rem;
+        padding: 0 0.5rem;
+    }
+
+    /* Message Actions */
+    .message-actions {
+        opacity: 0;
+        transform: translateY(10px);
+        transition: all 0.3s ease;
+        padding: 0.25rem 0;
+    }
+
+    .message-wrapper:hover .message-actions {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .reply-button {
+        background: none;
+        border: none;
+        color: #65676b;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        transition: all 0.2s ease;
+    }
+
+    /* Priority Message Styles */
+    .priority-label {
+        font-size: 0.85rem;
+        padding: 0.3rem 0.75rem;
+        border-radius: 1rem;
+        background: rgba(0, 0, 0, 0.1);
+        margin-bottom: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    /* Reply Preview */
+    .replied-message {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .replied-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #65676b;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    /* Message Direction Specific Styles */
+    .message-wrapper.sent {
+        margin-left: auto;
+        flex-direction: row-reverse;
+    }
+
+    .message-wrapper.received {
+        margin-right: auto;
+        flex-direction: row;
+    }
+
+    .message-wrapper.sent .message-card {
+        background: #0084ff;
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+
+    .message-wrapper.received .message-card {
+        background: #f0f2f5;
+        color: #1a1a1a;
+        border-bottom-left-radius: 4px;
+    }
+
+    .message-wrapper.sent .message-meta {
+        justify-content: flex-end;
+    }
+
+    .message-wrapper.received .message-meta {
+        justify-content: flex-start;
+    }
+
+    /* Mobile Responsiveness */
+    @@media (max-width: 768px) {
+        .messages-list {
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .message-wrapper {
+            max-width: 90%;
+            gap: 0.5rem;
+        }
+
+        .avatar-circle {
+            width: 32px;
+            height: 32px;
+        }
+
+        .message-card {
+            padding: 0.6rem 0.9rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Back to Present Button */
+    .back-to-present {
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #ffffff;
+        color: #1a1a1a;
+        border: none;
+        border-radius: 24px;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        cursor: pointer;
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .back-to-present.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .back-to-present:hover {
+        background: #ffd700;
+        transform: translateX(-50%) translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+
+    .back-to-present i {
+        font-size: 1.1rem;
+    }
+
+    @@media (max-width: 768px) {
+        .back-to-present {
+            bottom: 80px;
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+        }
+    }
+
+    .messages-container::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .messages-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+    }
+
+    .messages-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    .message-highlight {
+        animation: messageHighlight 3s ease;
+    }
+
+    @@keyframes messageHighlight {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.1);
+        }
+        10% {
+            transform: scale(1.02);
+            box-shadow: 0 4px 24px rgba(99, 102, 241, 0.4);
+        }
+        90% {
+            transform: scale(1.02);
+            box-shadow: 0 4px 24px rgba(99, 102, 241, 0.4);
+        }
+        100% {
+            transform: scale(1);
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.1);
+        }
+    }
+
+    /* Reply Preview Header */
+    .reply-preview-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: #2d2d3d;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transform: translateY(-100%);
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .reply-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .reply-to-text {
+        color: #a8a8b3;
+    }
+
+    .reply-name {
+        color: white;
+        font-weight: 500;
+    }
+
+    .close-reply {
+        background: none;
+        border: none;
+        color: white;
+        padding: 0.25rem;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-reply:hover {
+        opacity: 1;
+    }
+
+    /* Icon Animations */
+    .bi {
+        transition: all 0.3s ease;
+    }
+
+    .bi-chat-square-dots {
+        animation: bounce 2s infinite;
+    }
+
+    .bi-send {
+        transition: transform 0.3s ease;
+    }
+
+    .send-button:hover .bi-send {
+        transform: translateX(2px) rotate(15deg);
+        animation: sendPulse 1s infinite;
+    }
+
+    .bi-exclamation-triangle-fill {
+        animation: emergencyPulse 2s infinite;
+        color: #ff4444;
+    }
+
+    .bi-star-fill {
+        animation: starRotate 4s linear infinite;
+        color: #ffd700;
+    }
+
+    .bi-megaphone-fill {
+        animation: announcementWave 2s infinite;
+        color: #00C851;
+    }
+
+    .bi-reply {
+        transition: transform 0.3s ease;
+    }
+
+    .reply-button:hover .bi-reply {
+        transform: translateX(-3px);
+    }
+
+    /* Message Type Glowing Effects */
+    .message-wrapper.emergency .message-card {
+        animation: emergencyGlow 2s infinite;
+        background: linear-gradient(135deg, #ff4444, #cc0000);
+        color: white;
+        box-shadow: 0 2px 20px rgba(255, 68, 68, 0.3);
+    }
+
+    .message-wrapper.priority .message-card {
+        animation: priorityGlow 3s infinite;
+        background: linear-gradient(135deg, #ffd700, #ffa500);
+        color: #1a1a1a;
+        box-shadow: 0 2px 20px rgba(255, 215, 0, 0.3);
+    }
+
+    .message-wrapper.announcement .message-card {
+        animation: announcementGlow 4s infinite;
+        background: linear-gradient(135deg, #00C851, #007E33);
+        color: white;
+        box-shadow: 0 2px 20px rgba(0, 200, 81, 0.3);
+    }
+
+    /* Animation Keyframes */
+    @@keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+
+    @@keyframes sendPulse {
+        0% { transform: translateX(2px) rotate(15deg) scale(1); }
+        50% { transform: translateX(2px) rotate(15deg) scale(1.1); }
+        100% { transform: translateX(2px) rotate(15deg) scale(1); }
+    }
+
+    @@keyframes emergencyPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.8; }
+    }
+
+    @@keyframes starRotate {
+        0% { transform: rotate(0deg) scale(1); }
+        25% { transform: rotate(90deg) scale(1.1); }
+        50% { transform: rotate(180deg) scale(1); }
+        75% { transform: rotate(270deg) scale(1.1); }
+        100% { transform: rotate(360deg) scale(1); }
+    }
+
+    @@keyframes announcementWave {
+        0% { transform: scale(1) rotate(0); }
+        25% { transform: scale(1.1) rotate(-5deg); }
+        50% { transform: scale(1) rotate(0); }
+        75% { transform: scale(1.1) rotate(5deg); }
+        100% { transform: scale(1) rotate(0); }
+    }
+
+    @@keyframes emergencyGlow {
+        0%, 100% { box-shadow: 0 2px 20px rgba(255, 68, 68, 0.3); }
+        50% { box-shadow: 0 2px 30px rgba(255, 68, 68, 0.6); }
+    }
+
+    @@keyframes priorityGlow {
+        0%, 100% { box-shadow: 0 2px 20px rgba(255, 215, 0, 0.3); }
+        50% { box-shadow: 0 2px 30px rgba(255, 215, 0, 0.6); }
+    }
+
+    @@keyframes announcementGlow {
+        0%, 100% { box-shadow: 0 2px 20px rgba(0, 200, 81, 0.3); }
+        50% { box-shadow: 0 2px 30px rgba(0, 200, 81, 0.6); }
+    }
+
+    /* Filter Button Animations */
+    .filter-btn {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .filter-btn::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.6s ease, height 0.6s ease;
+    }
+
+    .filter-btn:hover::after {
+        width: 200%;
+        height: 200%;
+    }
+
+    .filter-btn.active {
+        animation: activeButtonPulse 2s infinite;
+    }
+
+    @@keyframes activeButtonPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+    }
+
+    /* Clear Button Animation */
+    .clear-button {
+        transition: all 0.3s ease;
+    }
+
+    .clear-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 12px rgba(220, 53, 69, 0.3);
+    }
+
+    .clear-button:active {
+        transform: scale(0.95);
+    }
+
+    /* Priority Select Animation */
+    .priority-select {
+        transition: all 0.3s ease;
+    }
+
+    .priority-select:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 12px rgba(255, 215, 0, 0.15);
+    }
+
+    /* Reply Preview Animation */
+    .reply-preview-header {
+        animation: slideDown 0.3s ease;
+    }
+
+    @@keyframes slideDown {
+        from {
+            transform: translateY(-100%) scaleY(0);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0) scaleY(1);
+            opacity: 1;
+        }
+    }
+}
+
+</style>
+
+@code {
+    private string newMessage = string.Empty;
+    private List<BoardMessageDto> messages = new();
+    private FilterType currentFilter = FilterType.All;
+    private MessagePriority selectedPriority = MessagePriority.Normal;
+    private string currentUserName;
+    private string currentUserRole;
+    private int currentUserId;
+    private ElementReference messageContainer;
+    private BoardMessageDto? replyingTo;
+    [Parameter]
+    public string? HighlightMessageId { get; set; }
+    private bool isLoading = false;
+    private bool showGoToPresent = false;
+    private HubConnection? hubConnection;
+    private bool isClearing = false;
+    private bool isPageVisible = true;
+    private DotNetObjectReference<BoardMessages>? objRef;
+
+    private enum FilterType
+    {
+        All,
+        Emergency,
+        Priority,
+        Announcement
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            currentUserId = int.Parse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            currentUserName = user.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown User";
+            currentUserRole = user.FindFirst(ClaimTypes.Role)?.Value ?? "User";
+            
+            objRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("initializeVisibilityHandler", objRef);
+            
+            var token = await SecureStorage.GetItemAsync<string>("jwt-access-token");
+            
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/boardMessageHub"), options => {
+                    options.AccessTokenProvider = () => Task.FromResult(token);
+                })
+                .WithAutomaticReconnect(new[] { TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10) })
+                .Build();
+
+            hubConnection.Reconnecting += (exception) =>
+            {
+                Console.WriteLine($"SignalR attempting to reconnect: {exception?.Message}");
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Reconnected += (connectionId) =>
+            {
+                Console.WriteLine($"SignalR reconnected with ID: {connectionId}");
+                InvokeAsync(() => LoadMessages());
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Closed += async (exception) =>
+            {
+                Console.WriteLine($"SignalR connection closed: {exception?.Message}");
+                await Task.Delay(5000);
+                await ReconnectSignalR();
+            };
+
+            hubConnection.On<BoardMessageDto>("ReceiveMessage", async (message) =>
+            {
+                if (!isClearing)
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        try
+                        {
+                            message.IsCurrentUser = message.UserId == currentUserId;
+                            
+                            Console.WriteLine($"Received message via SignalR: {message.Content} from {message.UserName} (ID: {message.MessageId})");
+                            
+                            if (!messages.Any(m => m.MessageId == message.MessageId))
+                            {
+                                messages.Add(message);
+                                messages = messages.OrderBy(m => m.Timestamp).ToList();
+                                messages = ApplyCurrentFilter();
+                                
+                                // Only show notification if page is not visible and message is from others
+                                if (!message.IsCurrentUser && !isPageVisible)
+                                {
+                                    await ShowBrowserNotification(message);
+                                }
+                                else if (!message.IsCurrentUser && isPageVisible)
+                                {
+                                    // Automatically mark as read if we're on the page
+                                    await MarkMessageAsRead(message.MessageId);
+                                }
+                                
+                                StateHasChanged();
+                                await ScrollToBottom();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error handling received message: {ex.Message}");
+                            await ShowError($"Error handling message: {ex.Message}");
+                        }
+                    });
+                }
+            });
+
+            hubConnection.On<BoardMessageDto>("ReceiveNotification", async (notification) =>
+            {
+                if (notification.UserId != currentUserId)
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await NotificationService.AddNotification(notification);
+                        // Only show browser notification if we're not on the page
+                        if (!isPageVisible)
+                        {
+                            var title = $"{notification.UserName} - New {notification.Priority} Message";
+                            var options = new
+                            {
+                                body = notification.Content,
+                                icon = "/images/notification-icon.png",
+                                badge = "/images/notification-badge.png",
+                                tag = notification.MessageId.ToString()
+                            };
+                            await JSRuntime.InvokeVoidAsync("showNotification", title, options);
+                        }
+                        else
+                        {
+                            // If we are on the page, mark it as read immediately
+                            await MarkMessageAsRead(notification.MessageId);
+                        }
+                        StateHasChanged();
+                    });
+                }
+            });
+
+            try 
+            {
+                // Load existing messages
+                await LoadMessages();
+                
+                // Connect to SignalR
+                await hubConnection.StartAsync();
+                Console.WriteLine("SignalR Connected!");
+                
+                // Request notification permission
+                await RequestNotificationPermission();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SignalR Connection Error: {ex.Message}");
+                await ShowError($"Failed to connect to chat service: {ex.Message}");
+                // Try to reconnect
+                await ReconnectSignalR();
+            }
+            
+            var savedMessage = await SecureStorage.GetItemAsync<string>($"boardMessage_draft_{currentUserId}");
+            if (!string.IsNullOrEmpty(savedMessage))
+            {
+                newMessage = savedMessage;
+            }
+            
+            var boardMessageNotifications = NotificationService.UnreadMessages
+                .Where(m => m.Type != "UserRegistration" && 
+                           m.Type != "RequestSubmission" && 
+                           m.Type != "ConcernSubmission" && 
+                           m.Type != "SuggestionSubmission")
+                .ToList();
+
+            foreach (var notification in boardMessageNotifications)
+            {
+                await NotificationService.MarkAsRead(notification.MessageId);
+            }
+            
+            var uri = new Uri(NavigationManager.Uri);
+            var queryString = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            HighlightMessageId = queryString["highlight"];
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(HighlightMessageId) && int.TryParse(HighlightMessageId, out int messageId))
+        {
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("scrollToMessage", messageId);
+        }
+    }
+
+    private async Task LoadMessages()
+    {
+        if (isClearing) return;
+
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var response = await Http.GetFromJsonAsync<Response<List<BoardMessageDto>>>("api/BoardMessage");
+            if (response?.IsSuccess == true && response.Data != null)
+            {
+                messages = response.Data.Select(m => 
+                {
+                    m.IsCurrentUser = m.UserId == currentUserId;
+                    return m;
+                }).ToList();
+                messages = ApplyCurrentFilter();
+                StateHasChanged();
+            }
+            else
+            {
+                await Swal.FireAsync("Error", "Failed to load messages", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await Swal.FireAsync("Error", $"Failed to load messages: {ex.Message}", SweetAlertIcon.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetMessageClass(BoardMessageDto message)
+    {
+        var baseClass = message.IsCurrentUser ? "bg-primary text-white" : "bg-light";
+        return message.Priority switch
+        {
+            MessagePriority.Announcement => "announcement",
+            MessagePriority.Emergency => "emergency",
+            MessagePriority.Priority => "priority",
+            _ => baseClass
+        };
+    }
+
+    private string GetPriorityClass(MessagePriority priority) => priority.ToString().ToLower();
+
+    private string GetPriorityIcon(MessagePriority priority) => priority switch
+    {
+        MessagePriority.Emergency => "bi-exclamation-triangle-fill",
+        MessagePriority.Priority => "bi-star-fill",
+        MessagePriority.Announcement => "bi-megaphone-fill",
+        _ => "bi-chat"
+    };
+
+    private string GetUserColor(string role)
+    {
+        return role switch
+        {
+            "SuperAdmin" => "#dc3545",
+            "Admin" => "#0d6efd",
+            "User" => "#198754",
+            _ => "#6c757d"
+        };
+    }
+
+    private List<BoardMessageDto> ApplyCurrentFilter()
+    {
+        return currentFilter switch
+        {
+            FilterType.All => messages.ToList(),
+            FilterType.Emergency => messages.Where(m => m.Priority == MessagePriority.Emergency).ToList(),
+            FilterType.Priority => messages.Where(m => m.Priority == MessagePriority.Priority).ToList(),
+            FilterType.Announcement => messages.Where(m => m.Priority == MessagePriority.Announcement).ToList(),
+            _ => messages.ToList()
+        };
+    }
+
+    private async Task FilterMessages(FilterType filter)
+    {
+        currentFilter = filter;
+        await LoadMessages();
+        messages = ApplyCurrentFilter();
+        StateHasChanged();
+    }
+
+    private async Task ReplyToMessage(BoardMessageDto message)
+    {
+        replyingTo = message;
+        await Task.Delay(100);
+        if (replyingTo != null)
+        {
+            await JSRuntime.InvokeVoidAsync("focusTextarea");
+        }
+    }
+
+    private void CancelReply()
+    {
+        replyingTo = null;
+        StateHasChanged();
+    }
+
+    private async Task PostMessage()
+    {
+        if (string.IsNullOrWhiteSpace(newMessage))
+            return;
+
+        try
+        {
+            Console.WriteLine($"Attempting to send message: {newMessage}");
+            
+            // Create the message with Philippines time
+            var message = new BoardMessageDto
+            {
+                Content = replyingTo != null 
+                    ? $"Replying to @{replyingTo.UserName}: {newMessage}" 
+                    : newMessage,
+                Priority = selectedPriority,
+                UserId = currentUserId,
+                UserName = currentUserName,
+                Role = currentUserRole,
+                Timestamp = DateTime.UtcNow,  // Keep UTC time for storage
+                Type = selectedPriority.ToString(),
+                IsCurrentUser = true
+            };
+
+            Console.WriteLine($"Message created - UserId: {message.UserId}, UserName: {message.UserName}, Content: {message.Content}");
+
+            try
+            {
+                // First save to database to get MessageId
+                Console.WriteLine("Saving message to database...");
+                var response = await Http.PostAsJsonAsync("api/BoardMessage", message);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine("Message saved to database successfully");
+                    var savedMessage = await response.Content.ReadFromJsonAsync<Response<BoardMessageDto>>();
+                    if (savedMessage?.Data != null)
+                    {
+                        message = savedMessage.Data; // Use the saved message with proper ID
+                        
+                        // Now broadcast via SignalR
+                        if (hubConnection?.State == HubConnectionState.Connected)
+                        {
+                            Console.WriteLine("Broadcasting message via SignalR...");
+                            await hubConnection.SendAsync("SendMessage", message);
+                            Console.WriteLine("Message broadcast complete");
+                            
+                            // Clear input fields
+                            newMessage = string.Empty;
+                            replyingTo = null;
+                            await SecureStorage.RemoveItemAsync($"boardMessage_draft_{currentUserId}");
+                            
+                            // Add message to local list immediately
+                            messages.Add(message);
+                            messages = messages.OrderBy(m => m.Timestamp).ToList();
+                            StateHasChanged();
+                        }
+                        else
+                        {
+                            Console.WriteLine($"SignalR not connected. Current state: {hubConnection?.State}");
+                            await ReconnectSignalR();
+                            if (hubConnection?.State == HubConnectionState.Connected)
+                            {
+                                await hubConnection.SendAsync("SendMessage", message);
+                                Console.WriteLine("Message broadcast after reconnection");
+                            }
+                            else
+                            {
+                                await ShowError("Unable to establish real-time connection. Messages may be delayed.");
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to save message: {response.StatusCode}");
+                    await ShowError($"Failed to save message: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in message handling: {ex.Message}");
+                await ShowError($"Error sending message: {ex.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in PostMessage: {ex.Message}");
+            await ShowError($"Error sending message: {ex.Message}");
+        }
+    }
+
+    private async Task ReconnectSignalR()
+    {
+        if (hubConnection?.State == HubConnectionState.Disconnected)
+    {
+        try
+        {
+                await hubConnection.StartAsync();
+                Console.WriteLine("SignalR Reconnected!");
+                if (!isClearing)
+                {
+                    await LoadMessages();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SignalR Reconnection Error: {ex.Message}");
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeScrollHandler", DotNetObjectReference.Create(this));
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToBottom", "messageContainer");
+            showGoToPresent = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            // Ignore any scrolling errors
+        }
+    }
+
+    private async Task MarkAsReadIfNeeded(BoardMessageDto message)
+    {
+        if (!message.IsRead && !message.IsCurrentUser)
+        {
+            await MarkMessageAsRead(message.MessageId);
+        }
+    }
+
+    private async Task MarkMessageAsRead(int messageId)
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/BoardMessage/{messageId}/read", new {});
+            if (response.IsSuccessStatusCode)
+            {
+                var message = messages.FirstOrDefault(m => m.MessageId == messageId);
+                if (message != null)
+                {
+                    message.IsRead = true;
+                    await NotificationService.MarkAsRead(message.MessageId);
+                    StateHasChanged();
+                }
+                await LoadMessages();
+            }
+            else
+            {
+                await ShowError("Failed to mark message as read");
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowError("Failed to mark message as read: " + ex.Message);
+        }
+    }
+
+    private async Task ClearAllMessages()
+    {
+        try
+        {
+            var confirmResult = await Swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Are you sure?",
+                Text = "This will permanently delete all messages. This action cannot be undone.",
+                Icon = SweetAlertIcon.Warning,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, clear all messages",
+                CancelButtonText = "Cancel",
+                ConfirmButtonColor = "#dc3545"
+            });
+
+            if (!confirmResult.IsConfirmed) return;
+
+            isLoading = true;
+            isClearing = true;
+            StateHasChanged();
+
+            var response = await Http.DeleteAsync("api/BoardMessage/clear");
+            var responseContent = await response.Content.ReadFromJsonAsync<Response>();
+
+            if (response.IsSuccessStatusCode && responseContent?.IsSuccess == true)
+            {
+                if (hubConnection?.State == HubConnectionState.Connected)
+                {
+                    try
+            {
+                messages.Clear();
+                        StateHasChanged();
+
+                        await hubConnection.SendAsync("ClearAllMessages");
+                        Console.WriteLine("ClearAllMessages signal sent");
+                await Swal.FireAsync("Success", "All messages have been cleared successfully", SweetAlertIcon.Success);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"SignalR clear messages error: {ex.Message}");
+                        await ShowError($"Failed to sync message clearing: {ex.Message}");
+                        isClearing = false;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Hub connection not in Connected state");
+                    await ShowError("Failed to sync message clearing: Connection not available");
+                    isClearing = false;
+                }
+            }
+            else
+            {
+                var errorMessage = responseContent?.Message ?? "Unknown error occurred";
+                await ShowError($"Failed to clear messages: {errorMessage}");
+                isClearing = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Clear messages error: {ex.Message}");
+            await ShowError($"An error occurred: {ex.Message}");
+            isClearing = false;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (e.ShiftKey)
+            {
+                return;
+            }
+            
+            if (!string.IsNullOrWhiteSpace(newMessage))
+            {
+                await PostMessage();
+            }
+        }
+    }
+
+    private async Task ShowError(string message)
+    {
+        await Swal.FireAsync("Error", message, SweetAlertIcon.Error);
+    }
+
+    private async Task HandleMessageChange(ChangeEventArgs e)
+    {
+        newMessage = e.Value?.ToString() ?? string.Empty;
+        await SaveDraft();
+    }
+
+    private async Task SaveDraft()
+    {
+        if (!string.IsNullOrWhiteSpace(newMessage))
+        {
+            await SecureStorage.SetItemAsync($"boardMessage_draft_{currentUserId}", newMessage);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (objRef != null)
+            {
+                objRef.Dispose();
+            }
+            
+            if (hubConnection is not null)
+            {
+                await hubConnection.DisposeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in dispose: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public void UpdateScrollButton(bool show)
+    {
+        showGoToPresent = show;
+        StateHasChanged();
+    }
+
+    private async Task RequestNotificationPermission()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("requestNotificationPermission");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error requesting notification permission: {ex.Message}");
+        }
+    }
+
+    private async Task ShowBrowserNotification(BoardMessageDto message)
+    {
+        if (!message.IsCurrentUser)
+        {
+            var title = $"{message.UserName} - New {message.Priority} Message";
+            var options = new
+            {
+                body = message.Content,
+                icon = "/images/notification-icon.png",
+                badge = "/images/notification-badge.png",
+                tag = message.MessageId.ToString()
+            };
+            await JSRuntime.InvokeVoidAsync("showNotification", title, options);
+        }
+    }
+
+    [JSInvokable]
+    public void OnVisibilityChange(bool isVisible)
+    {
+        isPageVisible = isVisible;
+        if (isVisible)
+        {
+            // Mark all unread messages as read when page becomes visible
+            _ = Task.Run(async () =>
+            {
+                foreach (var message in messages.Where(m => !m.IsRead && !m.IsCurrentUser))
+                {
+                    await MarkMessageAsRead(message.MessageId);
+                }
+            });
+        }
+    }
+
+    private string FormatMessageTime(DateTime utcTime)
+    {
+        // Convert UTC to Philippines time (UTC+8)
+        var philippinesTime = utcTime.AddHours(8);
+        return philippinesTime.ToString("h:mm tt");
+    }
+}
+
+<script>
+    window.scrollToBottom = function(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.scrollTop = element.scrollHeight;
+        }
+    }
+
+    window.scrollToMessage = function(messageId) {
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            messageElement.classList.add('message-highlight');
+        }
+    }
+
+    window.initializeTextarea = function () {
+        const textarea = document.querySelector('.custom-textarea');
+        if (textarea) {
+            textarea.addEventListener('focus', function() {
+                this.style.height = 'auto';
+                const newHeight = Math.min(this.scrollHeight, 120);
+                this.style.height = newHeight + 'px';
+                this.style.overflow = 'auto';
+            });
+
+            textarea.addEventListener('input', function() {
+                this.style.height = '45px';
+                const newHeight = Math.min(this.scrollHeight, 120);
+                this.style.height = newHeight + 'px';
+            });
+
+            textarea.addEventListener('blur', function() {
+                if (this.value.length === 0) {
+                    this.style.height = '45px';
+                    this.style.overflow = 'hidden';
+                }
+            });
+        }
+    }
+
+    window.initializeScrollHandler = function (dotNetRef) {
+        const messageContainer = document.getElementById('messageContainer');
+        if (messageContainer) {
+            messageContainer.addEventListener('scroll', function() {
+                const scrollPosition = messageContainer.scrollTop + messageContainer.clientHeight;
+                const scrollHeight = messageContainer.scrollHeight;
+                const threshold = 300;
+                
+                dotNetRef.invokeMethodAsync('UpdateScrollButton', 
+                    scrollHeight - scrollPosition > threshold);
+            });
+        }
+        
+        window.initializeTextarea();
+    }
+
+    window.focusTextarea = function() {
+        const textarea = document.querySelector('.custom-textarea');
+        if (textarea) {
+            textarea.focus();
+        }
+    }
+
+    window.requestNotificationPermission = function () {
+        if ("Notification" in window) {
+            Notification.requestPermission();
+        }
+    }
+
+    window.showNotification = function (title, body) {
+        if ("Notification" in window && Notification.permission === "granted") {
+            new Notification(title, {
+                body: body,
+                icon: '/images/notification-icon.png'  // Add your notification icon path
+            });
+        }
+    }
+
+    window.initializeVisibilityHandler = function (dotNetRef) {
+        document.addEventListener("visibilitychange", function() {
+            const isVisible = document.visibilityState === "visible";
+            dotNetRef.invokeMethodAsync('OnVisibilityChange', isVisible);
+        });
+        
+        // Initial visibility state
+        const isVisible = document.visibilityState === "visible";
+        dotNetRef.invokeMethodAsync('OnVisibilityChange', isVisible);
+    }
+</script>
+
+

@@ -1,0 +1,855 @@
+@page "/client/my-submissions"
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Shared.Enums
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using Microsoft.Extensions.Logging
+@using Blazored.LocalStorage
+@using CurrieTechnologies.Razor.SweetAlert2
+@using BlazorApp1.Client.Services
+@using System.Text.Json
+@implements IDisposable
+@inject NavigationManager NavigationManager
+@inject ISubmissionService SubmissionService
+@inject ILogger<MySubmissions> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILocalStorageService LocalStorage
+@inject SweetAlertService Swal
+
+<div class="container-fluid py-4 animate-fade-in">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg hover-shadow">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-dark fw-bold">My Submissions</h5>
+                        <button class="btn btn-warning hover-scale" @onclick="@(e => CreateNewSubmission())">
+                            <i class="fas fa-plus me-2"></i>New Submission
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4 animate-slide-down">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="input-group hover-shadow-sm">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="fas fa-filter text-warning"></i>
+                                </span>
+                                <select class="form-select border-start-0" @bind="selectedType">
+                                    <option value="">All Types</option>
+                                    <option value="concern">Concerns</option>
+                                    <option value="request">Requests</option>
+                                    <option value="suggestion">Suggestions</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="input-group hover-shadow-sm">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="fas fa-tag text-warning"></i>
+                                </span>
+                                <select class="form-select border-start-0" @bind="selectedStatus">
+                                    <option value="">All Statuses</option>
+                                    <option value="@SubmissionStatus.Pending">Pending Review</option>
+                                    <option value="@SubmissionStatus.InProgress">In Progress</option>
+                                    <option value="@SubmissionStatus.Resolved">Resolved</option>
+                                    <option value="@SubmissionStatus.Rejected">Rejected</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="input-group hover-shadow-sm">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="fas fa-list-ol text-warning"></i>
+                                </span>
+                                <select class="form-select border-start-0" @bind="itemsPerPage">
+                                    <option value="5">5 per page</option>
+                                    <option value="10">10 per page</option>
+                                    <option value="20">20 per page</option>
+                                    <option value="50">50 per page</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (isLoading)
+                    {
+                        <div class="text-center py-5 animate-pulse">
+                            <div class="spinner-grow text-warning" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (FilteredSubmissions.Any())
+                    {
+                        <div class="table-responsive animate-fade-in">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th class="text-uppercase text-secondary text-xs font-weight-semibold opacity-7 ps-3">Title</th>
+                                        <th class="text-uppercase text-secondary text-xs font-weight-semibold opacity-7">Type</th>
+                                        <th class="text-uppercase text-secondary text-xs font-weight-semibold opacity-7">Status</th>
+                                        <th class="text-uppercase text-secondary text-xs font-weight-semibold opacity-7">Priority</th>
+                                        <th class="text-uppercase text-secondary text-xs font-weight-semibold opacity-7">Submitted</th>
+                                        <th class="text-uppercase text-secondary text-xs font-weight-semibold opacity-7 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var submission in PagedSubmissions)
+                                    {
+                                        <tr class="animate-fade-in hover-row">
+                                            <td class="ps-3">
+                                                <div class="d-flex flex-column">
+                                                    <h6 class="mb-0 text-sm">@submission.Subject</h6>
+                                                    <p class="text-xs text-muted mb-0">@submission.Category</p>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetTypeBadgeClass(submission.Type) animate-badge">
+                                                    @submission.Type
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetStatusBadgeClass(submission.Status) animate-badge">
+                                                    @GetStatusDisplay(submission.Status)
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetPriorityBadgeClass(submission.Priority) animate-badge">
+                                                    @submission.Priority
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="text-secondary text-sm">
+                                                    @submission.SubmittedDate.ToString("MMM dd, yyyy")
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-link p-1 hover-scale" @onclick="@(e => ViewDetails(submission.Id))">
+                                                    <i class="fas fa-eye text-warning"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-4 animate-fade-in">
+                            <div class="text-muted">
+                                Showing @(((currentPage - 1) * itemsPerPage) + 1) to @Math.Min(currentPage * itemsPerPage, FilteredSubmissions.Count()) of @FilteredSubmissions.Count() entries
+                            </div>
+                            <div class="pagination-controls">
+                                <button class="btn btn-outline-warning me-2 hover-scale @(currentPage == 1 ? "disabled" : "")" 
+                                        @onclick="() => ChangePage(1)" disabled="@(currentPage == 1)">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button class="btn btn-outline-warning me-2 hover-scale @(currentPage == 1 ? "disabled" : "")" 
+                                        @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
+                                    <i class="fas fa-angle-left"></i>
+                                </button>
+                                @for (int i = startPage; i <= endPage; i++)
+                                {
+                                    var pageNumber = i;
+                                    <button class="btn @(pageNumber == currentPage ? "btn-warning" : "btn-outline-warning") me-2 hover-scale" 
+                                            @onclick="() => ChangePage(pageNumber)">
+                                        @pageNumber
+                                    </button>
+                                }
+                                <button class="btn btn-outline-warning me-2 hover-scale @(currentPage == TotalPages ? "disabled" : "")" 
+                                        @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage == TotalPages)">
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
+                                <button class="btn btn-outline-warning hover-scale @(currentPage == TotalPages ? "disabled" : "")" 
+                                        @onclick="() => ChangePage(TotalPages)" disabled="@(currentPage == TotalPages)">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5 animate-fade-in">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3 animate-bounce"></i>
+                            <h6 class="text-muted">No submissions found</h6>
+                            <p class="text-muted small">Try adjusting your filters or create a new submission</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isModalOpen && selectedSubmission != null)
+{
+    <div class="modal show animate-fade-in" tabindex="-1" style="display: block; background: transparent;">
+        <div class="modal-dialog modal-lg modal-dialog-centered animate-slide-down">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-white border-0 pb-0">
+                    <div>
+                        <h4 class="modal-title mb-1">@selectedSubmission.Subject</h4>
+                        <div class="d-flex gap-2">
+                            <span class="badge @GetTypeBadgeClass(selectedSubmission.Type) animate-badge">
+                                @selectedSubmission.Type
+                            </span>
+                            <span class="badge @GetStatusBadgeClass(selectedSubmission.Status) animate-badge">
+                                @GetStatusDisplay(selectedSubmission.Status)
+                            </span>
+                            <span class="badge @GetPriorityBadgeClass(selectedSubmission.Priority) animate-badge">
+                                @selectedSubmission.Priority
+                            </span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close hover-scale" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body bg-light pt-4">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="submission-progress mb-4 bg-white p-4 rounded shadow-sm hover-shadow">
+                                <div class="progress-track">
+                                    <div class="progress-step @(selectedSubmission.Status >= SubmissionStatus.Pending ? "active" : "")">
+                                        <span class="progress-marker animate-pulse">
+                                            <i class="fas fa-clock"></i>
+                                        </span>
+                                        <div class="progress-text">
+                                            <h6 class="mb-1">Pending</h6>
+                                            <p class="text-muted small mb-0">Submission received</p>
+                                        </div>
+                                    </div>
+                                    <div class="progress-step @(selectedSubmission.Status >= SubmissionStatus.InProgress ? "active" : "")">
+                                        <span class="progress-marker animate-spin">
+                                            <i class="fas fa-spinner"></i>
+                                        </span>
+                                        <div class="progress-text">
+                                            <h6 class="mb-1">In Progress</h6>
+                                            <p class="text-muted small mb-0">Being reviewed</p>
+                                        </div>
+                                    </div>
+                                    @if (selectedSubmission.Status == SubmissionStatus.Deleted || selectedSubmission.Status == SubmissionStatus.Rejected)
+                                    {
+                                        <div class="progress-step active rejected">
+                                            <span class="progress-marker">
+                                                <i class="fas fa-times"></i>
+                                            </span>
+                                            <div class="progress-text">
+                                                <h6 class="mb-1">Rejected</h6>
+                                                <p class="text-muted small mb-0">Request declined</p>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="progress-step @(selectedSubmission.Status == SubmissionStatus.Resolved ? "active" : "")">
+                                            <span class="progress-marker">
+                                                <i class="fas fa-check"></i>
+                                            </span>
+                                            <div class="progress-text">
+                                                <h6 class="mb-1">Resolved</h6>
+                                                <p class="text-muted small mb-0">Issue addressed</p>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="description-section bg-white p-4 rounded shadow-sm hover-shadow animate-fade-in">
+                                <h6 class="text-uppercase fw-bold mb-3">Description</h6>
+                                <div class="description-content p-3 bg-white rounded border">
+                                    @selectedSubmission.Description
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="submission-details bg-white p-4 rounded shadow-sm hover-shadow animate-fade-in">
+                                <h6 class="text-uppercase fw-bold mb-3">Details</h6>
+                                <div class="detail-item">
+                                    <label class="text-muted small fw-semibold">Category</label>
+                                    <p class="mb-3">@selectedSubmission.Category</p>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(selectedSubmission.Location))
+                                {
+                                    <div class="detail-item">
+                                        <label class="text-muted small fw-semibold">Location</label>
+                                        <p class="mb-3">@selectedSubmission.Location</p>
+                                    </div>
+                                }
+
+                                @if (selectedSubmission.PreferredDate.HasValue)
+                                {
+                                    <div class="detail-item">
+                                        <label class="text-muted small fw-semibold">Preferred Date</label>
+                                        <p class="mb-3">@selectedSubmission.PreferredDate.Value.ToString("MMM dd, yyyy")</p>
+                                    </div>
+                                }
+
+                                <div class="detail-item">
+                                    <label class="text-muted small fw-semibold">Submitted On</label>
+                                    <p class="mb-3">@selectedSubmission.SubmittedDate.ToString("MMM dd, yyyy HH:mm")</p>
+                                </div>
+
+                                <div class="detail-item">
+                                    <label class="text-muted small fw-semibold">Last Updated</label>
+                                    <p class="mb-3">@selectedSubmission.LastUpdated.ToString("MMM dd, yyyy HH:mm")</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-0">
+                    <button type="button" class="btn btn-secondary hover-scale" @onclick="CloseModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Animations */
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .animate-slide-down {
+        animation: slideDown 0.3s ease-in-out;
+    }
+
+    .animate-pulse {
+        animation: pulse 2s infinite;
+    }
+
+    .animate-bounce {
+        animation: bounce 2s infinite;
+    }
+
+    .animate-spin {
+        animation: spin 2s linear infinite;
+    }
+
+    .animate-badge {
+        transition: all 0.3s ease;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @@keyframes slideDown {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    @@keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    @@keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Hover Effects */
+    .hover-shadow {
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+
+    .hover-shadow:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .hover-shadow-sm {
+        transition: box-shadow 0.3s ease;
+    }
+
+    .hover-shadow-sm:hover {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    .hover-scale {
+        transition: transform 0.3s ease;
+    }
+
+    .hover-scale:hover {
+        transform: scale(1.05);
+    }
+
+    .hover-row {
+        transition: background-color 0.3s ease;
+    }
+
+    .hover-row:hover {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+    }
+
+    /* Card Styles */
+    .card {
+        border: none;
+        border-radius: 15px;
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card-header {
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+        border-top-left-radius: 15px !important;
+        border-top-right-radius: 15px !important;
+    }
+
+    /* Table Styles */
+    .table th {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 1rem;
+        background-color: #f8f9fa;
+    }
+
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 0.5em 0.75em;
+        font-weight: 500;
+        border-radius: 30px;
+    }
+
+    /* Form Controls */
+    .form-select {
+        padding: 0.6rem 1rem;
+        font-size: 0.875rem;
+        border-radius: 10px;
+        border-color: #dee2e6;
+        transition: all 0.3s ease;
+    }
+
+    .input-group-text {
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+    }
+
+    /* Pagination Controls */
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .pagination-controls .btn {
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+
+    /* Modal Styles */
+    .modal {
+        pointer-events: none; /* Allow clicking through the modal background */
+    }
+
+    .modal-dialog {
+        pointer-events: auto; /* Restore pointer events for the modal content */
+    }
+
+    .modal-content {
+        border: none;
+        box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.15);
+    }
+
+    /* Remove the backdrop styles */
+    .modal-backdrop {
+        display: none !important;
+    }
+
+    /* Progress Track Styles */
+    .progress-track {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+        padding: 2rem 1rem;
+    }
+
+    .progress-track::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #e9ecef;
+        z-index: 1;
+    }
+
+    .progress-step {
+        position: relative;
+        flex: 1;
+        text-align: center;
+        z-index: 2;
+    }
+
+    .progress-step::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: -50%;
+        width: 100%;
+        height: 2px;
+        background: #e9ecef;
+        transition: background 0.3s ease;
+    }
+
+    .progress-step.active::before {
+        background: #ffc107;
+    }
+
+    .progress-step:first-child::before {
+        display: none;
+    }
+
+    .progress-marker {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+        margin: 0 auto 1rem;
+        position: relative;
+        transition: all 0.3s ease;
+        z-index: 3;
+    }
+
+    .progress-step.active .progress-marker {
+        background: #ffc107;
+        border-color: #ffc107;
+        color: #fff;
+        box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.2);
+    }
+
+    .progress-step.active.rejected .progress-marker {
+        background: #dc3545;
+        border-color: #dc3545;
+        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.2);
+    }
+
+    .progress-step.active.deleted .progress-marker {
+        background: #dc3545;
+        border-color: #dc3545;
+        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.2);
+    }
+
+    .progress-text {
+        position: relative;
+        color: #adb5bd;
+        padding: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .progress-step.active .progress-text {
+        color: #344767;
+    }
+
+    .progress-step.active.rejected .progress-text {
+        color: #dc3545;
+    }
+
+    .progress-step.active.deleted .progress-text {
+        color: #dc3545;
+    }
+
+    .progress-text h6 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .progress-text p {
+        margin: 0;
+        font-size: 0.75rem;
+    }
+
+    /* Improve modal styles */
+    .modal-dialog {
+        max-width: 800px;
+    }
+
+    .submission-progress {
+        background: #fff;
+        border-radius: 1rem;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    /* Responsive Design */
+    @@media (max-width: 768px) {
+        .pagination-controls {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .table-responsive {
+            margin-bottom: 1.5rem;
+        }
+    }
+</style>
+
+@code {
+    private List<SubmissionDto>? submissions;
+    private string selectedType = "";
+    private bool isModalOpen;
+    private bool isLoading;
+    private SubmissionDto? selectedSubmission;
+    private SubmissionStatus? selectedStatus = null;
+    private System.Threading.Timer? _pollingTimer;
+    private const int PollingIntervalMs = 5000;
+    private int currentPage = 1;
+    private int itemsPerPage = 10;
+    private int maxVisiblePages = 5;
+
+    private int startPage => Math.Max(1, currentPage - (maxVisiblePages / 2));
+    private int endPage => Math.Min(TotalPages, startPage + maxVisiblePages - 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            await LoadSubmissions();
+            
+            _pollingTimer = new System.Threading.Timer(
+                async _ => await PollForUpdates(),
+                null,
+                PollingIntervalMs,
+                PollingIntervalMs
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in OnInitializedAsync");
+            await ShowError("Failed to initialize the page. Please try again later.");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadSubmissions()
+    {
+        try
+        {
+            submissions = await SubmissionService.GetSubmissionsAsync();
+            StateHasChanged();
+        }
+        catch (JsonException ex)
+        {
+            Logger.LogError(ex, "Error deserializing submissions data");
+            await ShowError("There was a problem loading your submissions. Please try refreshing the page.");
+            submissions = new List<SubmissionDto>();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading submissions");
+            await ShowError("Failed to load submissions. Please try again later.");
+            submissions = new List<SubmissionDto>();
+        }
+    }
+
+    private async Task PollForUpdates()
+    {
+        try
+        {
+            var updatedSubmissions = await SubmissionService.GetSubmissionsAsync();
+            if (updatedSubmissions != null)
+            {
+                // Update the entire submissions list
+                submissions = updatedSubmissions;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error polling for updates");
+        }
+    }
+
+    private async Task ShowError(string message)
+    {
+        await Swal.FireAsync(
+            "Error",
+            message,
+            SweetAlertIcon.Error
+        );
+    }
+
+    public void Dispose()
+    {
+        _pollingTimer?.Dispose();
+        if (isModalOpen)
+        {
+            isModalOpen = false;
+            selectedSubmission = null;
+        }
+    }
+
+    private IEnumerable<SubmissionDto> FilteredSubmissions =>
+        submissions?.Where(s => 
+            (string.IsNullOrEmpty(selectedType) || s.Type.ToLower() == selectedType) &&
+            (selectedStatus == null || 
+             (s.Status == selectedStatus) || 
+             (selectedStatus == SubmissionStatus.Rejected && s.Status == SubmissionStatus.Deleted)))
+        .OrderByDescending(s => s.SubmittedDate) ?? 
+        Enumerable.Empty<SubmissionDto>();
+
+    private IEnumerable<SubmissionDto> PagedSubmissions =>
+        FilteredSubmissions
+            .Skip((currentPage - 1) * itemsPerPage)
+            .Take(itemsPerPage);
+
+    private int TotalPages => (int)Math.Ceiling(FilteredSubmissions.Count() / (double)itemsPerPage);
+
+    private void ChangePage(int page)
+    {
+        currentPage = Math.Max(1, Math.Min(page, TotalPages));
+    }
+
+    private string GetTypeBadgeClass(string type) => type?.ToLower() switch
+    {
+        "concern" => "bg-warning text-dark",
+        "request" => "bg-warning text-dark",
+        "suggestion" => "bg-warning text-dark",
+        _ => "bg-warning text-dark"
+    };
+
+    private string GetStatusBadgeClass(SubmissionStatus status) => status switch
+    {
+        SubmissionStatus.Pending => "bg-warning text-dark",
+        SubmissionStatus.InProgress => "bg-info text-white",
+        SubmissionStatus.Resolved => "bg-success text-white",
+        SubmissionStatus.Rejected => "bg-danger text-white",
+        SubmissionStatus.Deleted => "bg-danger text-white",
+        _ => "bg-secondary text-white"
+    };
+
+    private string GetPriorityBadgeClass(string priority) => priority?.ToLower() switch
+    {
+        "high" => "bg-danger text-white",
+        "medium" => "bg-warning text-dark",
+        "low" => "bg-success text-white",
+        _ => "bg-secondary text-white"
+    };
+
+    private void CreateNewSubmission()
+    {
+        var type = string.IsNullOrEmpty(selectedType) ? "concern" : selectedType;
+        NavigationManager.NavigateTo($"/client/submit/{type}", false);
+    }
+
+    private async Task ViewDetails(int id)
+    {
+        try
+        {
+            isLoading = true;
+            selectedSubmission = await SubmissionService.GetSubmissionAsync(id);
+            isModalOpen = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading submission details");
+            await Swal.FireAsync(
+                "Error",
+                "Failed to load submission details. Please try again later.",
+                SweetAlertIcon.Error
+            );
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void CloseModal()
+    {
+        isModalOpen = false;
+        selectedSubmission = null;
+    }
+
+    private string GetProgressBarClass(SubmissionStatus status) => status switch
+    {
+        SubmissionStatus.Pending => "bg-warning",
+        SubmissionStatus.InProgress => "bg-info",
+        SubmissionStatus.Resolved => "bg-success",
+        SubmissionStatus.Rejected => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetProgressWidth(SubmissionStatus status) => status switch
+    {
+        SubmissionStatus.Pending => "25",
+        SubmissionStatus.InProgress => "50",
+        SubmissionStatus.Resolved => "100",
+        SubmissionStatus.Rejected => "100",
+        _ => "0"
+    };
+
+    private string GetStatusIcon(SubmissionStatus status) => status switch
+    {
+        SubmissionStatus.Pending => "fa-clock",
+        SubmissionStatus.InProgress => "fa-spinner fa-spin",
+        SubmissionStatus.Resolved => "fa-check",
+        SubmissionStatus.Rejected => "fa-times",
+        SubmissionStatus.Deleted => "fa-trash",
+        _ => "fa-question"
+    };
+
+    private string GetStatusDisplay(SubmissionStatus status) => status switch
+    {
+        SubmissionStatus.Pending => "Pending Review",
+        SubmissionStatus.InProgress => "In Progress",
+        SubmissionStatus.Resolved => "Resolved",
+        SubmissionStatus.Rejected => "Rejected",
+        SubmissionStatus.Deleted => "Rejected",
+        SubmissionStatus.Archived => "Resolved",
+        _ => status.ToString()
+    };
+
+    private string IsTimelineStepActive(SubmissionStatus currentStatus, SubmissionStatus targetStatus)
+    {
+        return currentStatus == targetStatus ? "active" : "";
+    }
+
+    private string IsTimelineStepActive(SubmissionStatus currentStatus, SubmissionStatus[] targetStatuses)
+    {
+        return targetStatuses.Contains(currentStatus) ? "active" : "";
+    }
+
+    private string GetTimelineIconClass(SubmissionStatus currentStatus, SubmissionStatus targetStatus)
+    {
+        if (currentStatus == targetStatus)
+        {
+            return currentStatus switch
+            {
+                SubmissionStatus.InProgress => "bg-primary",
+                SubmissionStatus.Resolved => "bg-success",
+                SubmissionStatus.Rejected => "bg-danger",
+                _ => "bg-secondary"
+            };
+        }
+        return "bg-light";
+    }
+} 

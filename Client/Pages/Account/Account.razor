@@ -1,0 +1,979 @@
+﻿@page "/account"
+@page "/account/{Action}"
+@using BlazorApp1.Client.Auth
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Shared
+@using System.Security.Claims
+@inject NavigationManager NavigationManager
+@inject IAccountService AccountService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject SweetAlertService Swal
+@inject ILogger<Account> _logger
+@inject ProfilePhotoService ProfilePhotoService
+@inject ProfileStateService ProfileState
+@inject IJSRuntime JSRuntime
+
+<style>
+    .account-container {
+        position: relative;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        background: #f8f9fa;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 1.5rem;
+        min-height: 100vh;
+    }
+
+    .account-card {
+        position: relative;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        width: 90%;
+        max-width: 1200px;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .account-header {
+        background: linear-gradient(135deg, #FFC107 0%, #ffca2c 100%);
+        padding: 1rem 2rem;
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content:center;
+        gap: 0.75rem;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .account-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    .account-content {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 2rem;
+        padding: 2rem;
+    }
+
+    .left-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 2rem;
+    }
+
+    .profile-photo-container {
+        width: 180px;
+        height: 180px;
+        position: relative;
+        margin: 1.5rem;
+        cursor: pointer;
+        overflow: visible;
+        transition: all 0.3s ease;
+    }
+
+    .profile-photo {
+        width: 180px;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid #FFC107;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .profile-photo:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .change-photo-btn {
+        position: absolute;
+        bottom: -60px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 193, 7, 0.9);
+        color: #000;
+        border: none;
+        padding: 0.75rem 1.25rem;
+        border-radius: 25px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        backdrop-filter: blur(4px);
+        z-index: 10;
+        opacity: 0;
+    }
+
+    .profile-photo-container:hover .change-photo-btn {
+        bottom: -45px;
+        opacity: 1;
+    }
+
+    .change-photo-btn:hover {
+        background: rgba(255, 193, 7, 1);
+        transform: translateX(-50%) translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .change-photo-btn i {
+        font-size: 1.1rem;
+    }
+
+    .right-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .info-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .section-title {
+        color: #000;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #FFC107;
+    }
+
+    .info-row {
+        display: flex;
+        margin-bottom: 1rem;
+        align-items: center;
+    }
+
+    .info-label {
+        flex: 0 0 150px;
+        font-weight: 600;
+        color: #424242;
+        font-size: 0.9rem;
+    }
+
+    .info-value {
+        flex: 1;
+        color: #212529;
+        font-size: 0.9rem;
+    }
+
+    .action-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: auto;
+    }
+
+    .btn-action {
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .btn-primary {
+        background: #FFC107;
+        color: #000;
+    }
+
+    .btn-primary:hover {
+        background: #ffca2c;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-secondary {
+        background: #f8f9fa;
+        color: #212529;
+        border: 1px solid #dee2e6;
+    }
+
+    .btn-secondary:hover {
+        background: #e9ecef;
+        transform: translateY(-2px);
+    }
+
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #FFC107;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .masked-password {
+        letter-spacing: 2px;
+        font-weight: bold;
+    }
+
+    .verification-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-left: 0.75rem;
+    }
+
+    .verified {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .not-verified {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    @@media (max-width: 1200px) {
+        .account-content {
+            grid-template-columns: 1fr;
+            padding: 1.5rem;
+            gap: 1.5rem;
+        }
+
+        .left-section {
+            padding: 1rem;
+        }
+
+        .profile-photo-container {
+            width: 150px;
+            height: 150px;
+            margin: 1rem;
+        }
+
+        .profile-photo {
+            width: 150px;
+            height: 150px;
+        }
+
+        .right-section {
+            gap: 1rem;
+        }
+
+        .info-section {
+            padding: 1.25rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+        }
+
+        .info-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .info-label {
+            flex: none;
+        }
+
+        .info-value {
+            width: 100%;
+        }
+
+        .action-buttons {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .account-container {
+            padding: 1rem;
+        }
+
+        .account-card {
+            width: 95%;
+        }
+
+        .account-header {
+            padding: 0.75rem 1.5rem;
+        }
+
+        .account-header h3 {
+            font-size: 1.25rem;
+        }
+
+        .account-content {
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .left-section {
+            padding: 0.5rem;
+        }
+
+        .profile-photo-container {
+            width: 120px;
+            height: 120px;
+            margin: 0.75rem;
+        }
+
+        .profile-photo {
+            width: 120px;
+            height: 120px;
+        }
+
+        .change-photo-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+        }
+
+        .info-section {
+            padding: 1rem;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .btn-action {
+            padding: 0.6rem 0.8rem;
+            font-size: 0.85rem;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .account-container {
+            padding: 0.5rem;
+        }
+
+        .account-card {
+            width: 100%;
+            border-radius: 15px;
+        }
+
+        .account-header {
+            padding: 0.5rem 1rem;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .account-header h3 {
+            font-size: 1.1rem;
+        }
+
+        .account-content {
+            padding: 0.75rem;
+            gap: 0.75rem;
+        }
+
+        .profile-photo-container {
+            width: 100px;
+            height: 100px;
+            margin: 0.5rem;
+        }
+
+        .profile-photo {
+            width: 100px;
+            height: 100px;
+        }
+
+        .change-photo-btn {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.75rem;
+        }
+
+        .info-section {
+            padding: 0.75rem;
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+        }
+
+        .info-value {
+            font-size: 0.8rem;
+        }
+
+        .btn-action {
+            padding: 0.5rem 0.7rem;
+            font-size: 0.8rem;
+        }
+
+        .verification-badge {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    }
+
+    .back-button {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        z-index: 10;
+    }
+
+    .back-button .btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .back-button .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+<AuthorizeView Context="authContext">
+    <Authorized>
+        <div class="account-container">
+            <div class="account-card">
+                <div class="account-header">
+                    <i class="fas fa-user-circle header-icon"></i>
+                    <h3>Account Management</h3>
+                </div>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
+                        @error
+                        <button type="button" class="btn-close" @onclick="() => error = null"></button>
+                    </div>
+                }
+
+                <div class="account-content">
+                    <div class="left-section">
+                        <div class="profile-photo-container">
+                            <img src="@(string.IsNullOrEmpty(profilePhotoUrl) ? "images/default-profile.png" : profilePhotoUrl)" 
+                                 alt="Profile Photo" 
+                                 class="profile-photo" />
+                            <button class="change-photo-btn" @onclick="TriggerFileInput">
+                                <i class="fas fa-camera me-2"></i> Change Photo
+                            </button>
+                            <InputFile OnChange="HandlePhotoUpload" class="d-none" id="photoUpload" accept=".jpg,.jpeg,.png,.gif" />
+                        </div>
+                    </div>
+
+                    <div class="right-section">
+                        <div class="info-section">
+                            <h4 class="section-title">Basic Information</h4>
+                            <div class="info-row">
+                                <div class="info-label">Username</div>
+                                <div class="info-value">@userDetails?.Username</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Email</div>
+                                <div class="info-value">
+                                    @userDetails?.Email
+                                    @if (!userDetails?.IsEmailVerified ?? true)
+                                    {
+                                        <span class="verification-badge not-verified">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            Not Verified
+                                        </span>
+                                        <button class="btn btn-sm btn-warning ms-2" @onclick="ResendVerificationEmail">
+                                            Resend Verification
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="verification-badge verified">
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            Verified
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Password</div>
+                                <div class="info-value">
+                                    <span class="masked-password">••••••••</span>
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Date of Birth</div>
+                                <div class="info-value">@(userProfileDetails?.DateOfBirth?.ToString("MMMM dd, yyyy") ?? "Not set")</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Contact Number</div>
+                                <div class="info-value">@(string.IsNullOrEmpty(userProfileDetails?.ContactNumber) ? "Not set" : userProfileDetails.ContactNumber)</div>
+                            </div>
+                        </div>
+
+                        <div class="info-section">
+                            <h4 class="section-title">Profile Information</h4>
+                            <div class="info-row">
+                                <div class="info-label">Full Name</div>
+                                <div class="info-value">@(string.IsNullOrEmpty(userProfileDetails?.FullName) ? "Not set" : userProfileDetails.FullName)</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Address</div>
+                                <div class="info-value">@(string.IsNullOrEmpty(userProfileDetails?.Address) ? "Not set" : userProfileDetails.Address)</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Marital Status</div>
+                                <div class="info-value">@(string.IsNullOrEmpty(userProfileDetails?.MaritalStatus) ? "Not set" : userProfileDetails.MaritalStatus)</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Gender</div>
+                                <div class="info-value">@(string.IsNullOrEmpty(userProfileDetails?.Gender) ? "Not set" : userProfileDetails.Gender)</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">Nationality</div>
+                                <div class="info-value">@(string.IsNullOrEmpty(userProfileDetails?.Nationality) ? "Not set" : userProfileDetails.Nationality)</div>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn-action btn-primary" @onclick="NavigateToEmail">
+                                <i class="fas fa-envelope me-2"></i>
+                                Change Email
+                            </button>
+                            <button class="btn-action btn-primary" @onclick="NavigateToUsername">
+                                <i class="fas fa-user me-2"></i>
+                                Change Username
+                            </button>
+                            <button class="btn-action btn-primary" @onclick="NavigateToPassword">
+                                <i class="fas fa-lock me-2"></i>
+                                Change Password
+                            </button>
+                            <button class="btn-action btn-primary" @onclick="NavigateToDetails">
+                                <i class="fas fa-edit me-2"></i>
+                                Update Profile Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-warning m-4">
+            <p class="mb-2">Please log in to view your account details.</p>
+            <button class="btn-action btn-primary" @onclick="NavigateToLogin">
+                <i class="fas fa-sign-in-alt me-2"></i>
+                Login
+            </button>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private RegistrationView userDetails;
+    private UserDetailsDto userProfileDetails;
+    private bool isLoading = true;
+    private string error;
+    private string profilePhotoUrl;
+    private DateTime lastPhotoUpdate = DateTime.Now;
+    private bool isClient;
+    private bool isAdminOrSuperAdmin;
+
+    [Parameter]
+    public string Action { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            isClient = user.IsInRole("Client");
+            isAdminOrSuperAdmin = user.IsInRole("Admin") || user.IsInRole("SuperAdmin");
+
+            isLoading = true;
+            var token = await LocalStorage.GetItemAsync<string>("jwt-access-token");
+            if (string.IsNullOrEmpty(token))
+            {
+                NavigateToLogin();
+                return;
+            }
+
+            // Set the authorization header for the HttpClient
+            Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var authStateProvider = AuthenticationStateProvider as CustomAuthProvider;
+            if (authStateProvider != null)
+            {
+                await authStateProvider.NotifyUserAuthenticationAsync(token);
+            }
+
+            if (!authState.User.Identity.IsAuthenticated)
+            {
+                await HandleError("Authentication failed");
+                return;
+            }
+
+            var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                await HandleError("Invalid user identification");
+                return;
+            }
+
+            try
+            {
+                // Get user details with proper error handling
+                userDetails = await AccountService.GetById(userId);
+                if (userDetails == null)
+                {
+                    throw new Exception("Failed to load user details");
+                }
+
+                // Get user profile details
+                var profileResponse = await AccountService.GetUserDetailsAsync(userId);
+                if (profileResponse.IsSuccess)
+                {
+                    userProfileDetails = profileResponse.Data;
+                    _logger?.LogInformation($"Loaded user profile details - Contact Number: {userProfileDetails?.ContactNumber ?? "null"}");
+                    // Set initial profile photo URL
+                    profilePhotoUrl = GetProfilePhotoUrl();
+                }
+                else
+                {
+                    _logger?.LogWarning($"Failed to load user profile details: {profileResponse.Message}");
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                await LocalStorage.RemoveItemAsync("jwt-access-token");
+                NavigateToLogin();
+                return;
+            }
+            catch (Exception ex)
+            {
+                await HandleError($"Error loading user details: {ex.Message}");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            await HandleError($"Error during initialization: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (uri.Query.Contains("refresh="))
+        {
+            await LoadUserDetails();
+            lastPhotoUpdate = DateTime.Now;
+            NavigationManager.NavigateTo("/account", replace: true);
+        }
+    }
+
+    private async Task LoadUserDetails()
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("jwt-access-token");
+            if (string.IsNullOrEmpty(token))
+            {
+                NavigateToLogin();
+                return;
+            }
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (!authState.User.Identity.IsAuthenticated)
+            {
+                if (AuthenticationStateProvider is CustomAuthProvider authProvider)
+                {
+                    await authProvider.NotifyUserAuthenticationAsync(token);
+                    authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+                }
+            }
+
+            if (!authState.User.Identity.IsAuthenticated)
+            {
+                await HandleError("Authentication failed");
+                return;
+            }
+
+            var userIdClaim = authState.User.FindFirst(c => c.Type == "nameid" || c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                await HandleError("Invalid user identification");
+                return;
+            }
+
+            try
+            {
+                // Force a fresh load of user details
+                Http.DefaultRequestHeaders.Remove("Cache-Control");
+                Http.DefaultRequestHeaders.Add("Cache-Control", "no-cache, no-store, must-revalidate");
+                userDetails = await AccountService.GetById(userId);
+                Http.DefaultRequestHeaders.Remove("Cache-Control");
+            }
+            catch (Exception ex)
+            {
+                await HandleError("Failed to load user details: " + ex.Message);
+                return;
+            }
+
+            // Load user profile details
+            var response = await AccountService.GetUserDetailsAsync(userId);
+            if (response.IsSuccess && response.Data != null)
+            {
+                userProfileDetails = response.Data;
+            }
+            else
+            {
+                await HandleError("Failed to load user profile details");
+                return;
+            }
+
+            isLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await HandleError(ex.Message);
+        }
+    }
+
+    private async Task HandleError(string message)
+    {
+        error = message;
+        _logger?.LogError(message);
+        
+        if (message.Contains("session has expired") || message.Contains("Unauthorized"))
+        {
+            await LocalStorage.RemoveItemAsync("jwt-access-token");
+            NavigateToLogin();
+        }
+        else 
+        {
+            await Swal.FireAsync("Error", message, SweetAlertIcon.Error);
+        }
+    }
+
+    private void NavigateToEmail() => NavigateTo("email");
+    private void NavigateToUsername() => NavigateTo("username");
+    private void NavigateToPassword() => NavigateTo("password");
+    private void NavigateToDetails() => NavigationManager.NavigateTo($"/Account/UpdateAccountDetails?t={DateTime.Now.Ticks}");
+
+    private void NavigateTo(string action) => 
+        NavigationManager.NavigateTo($"/updateaccount/{action}");
+
+    private void NavigateToLogin() => 
+        NavigationManager.NavigateTo("/", true);
+
+    private string GetProfilePhotoUrl()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(userProfileDetails?.PhotoUrl))
+            {
+                var defaultUrl = "/ProfilePic.svg";
+                ProfilePhotoService.UpdateProfilePhoto(defaultUrl);
+                return defaultUrl;
+            }
+            
+            var url = $"{userProfileDetails.PhotoUrl}?v={DateTime.Now.Ticks}";
+            _logger?.LogInformation($"Updating profile photo URL to: {url}");
+            ProfilePhotoService.UpdateProfilePhoto(url);
+            return url;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error in GetProfilePhotoUrl");
+            return "/ProfilePic.svg";
+        }
+    }
+
+    private void HandleImageError()
+    {
+        var defaultUrl = "/ProfilePic.svg";
+        profilePhotoUrl = defaultUrl;
+        ProfilePhotoService.UpdateProfilePhoto(defaultUrl);
+        StateHasChanged();
+    }
+
+    private async Task ResendVerificationEmail()
+    {
+        try
+        {
+            if (userDetails?.UserId == null) return;
+
+            var response = await AccountService.SendVerificationEmailAsync(userDetails.UserId);
+            if (response.IsSuccess)
+            {
+                await Swal.FireAsync(new SweetAlertOptions
+                {
+                    Title = "Success!",
+                    Text = "Verification email sent successfully! Please check your inbox.",
+                    Icon = SweetAlertIcon.Success,
+                    ShowConfirmButton = true,
+                    ConfirmButtonColor = "#F9B42D"
+                });
+            }
+            else
+            {
+                if (response.Message.Contains("wait"))
+                {
+                    await Swal.FireAsync(new SweetAlertOptions
+                    {
+                        Title = "Please Wait",
+                        Text = response.Message,
+                        Icon = SweetAlertIcon.Warning,
+                        Timer = 3000,
+                        ShowConfirmButton = false,
+                        ShowCloseButton = true,
+                        Background = "#fff",
+                        Position = SweetAlertPosition.Center,
+                        CustomClass = new SweetAlertCustomClass
+                        {
+                            Title = "text-dark",
+                            Content = "text-secondary"
+                        }
+                    });
+                }
+                else if (response.Message.Contains("already verified"))
+                {
+                    // Refresh the page to update the verification status
+                    NavigationManager.NavigateTo(NavigationManager.Uri, true);
+                }
+                else
+                {
+                    await Swal.FireAsync(new SweetAlertOptions
+                    {
+                        Title = "Error",
+                        Text = response.Message,
+                        Icon = SweetAlertIcon.Error,
+                        ShowConfirmButton = true,
+                        ConfirmButtonColor = "#F9B42D"
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await Swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Error",
+                Text = "Failed to send verification email",
+                Icon = SweetAlertIcon.Error,
+                ShowConfirmButton = true,
+                ConfirmButtonColor = "#F9B42D"
+            });
+        }
+    }
+
+    private async Task HandlePhotoUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file == null) return;
+
+            _logger?.LogInformation($"Starting photo upload for file: {file.Name}");
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = int.Parse(authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+
+            // Upload the file
+            var response = await AccountService.UploadProfilePhotoAsync(userId, file);
+            
+            if (response.IsSuccess && !string.IsNullOrEmpty(response.Data))
+            {
+                _logger?.LogInformation($"Photo upload successful. New URL: {response.Data}");
+                
+                // Update the profile photo URL with timestamp to prevent caching
+                var newPhotoUrl = $"{response.Data}?v={DateTime.Now.Ticks}";
+                userProfileDetails.PhotoUrl = response.Data;
+                profilePhotoUrl = newPhotoUrl;
+                ProfilePhotoService.UpdateProfilePhoto(newPhotoUrl);
+
+                // Update the image source using JavaScript
+                await JSRuntime.InvokeVoidAsync("eval", $"document.querySelectorAll('.profile-photo').forEach(img => img.src = '{newPhotoUrl}')");
+                StateHasChanged();
+            }
+            else
+            {
+                _logger?.LogWarning($"Photo upload failed: {response.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to upload photo");
+        }
+    }
+
+    private void TriggerFileInput()
+    {
+        var js = "document.getElementById(\"photoUpload\").click();";
+        JSRuntime.InvokeVoidAsync("eval", js);
+    }
+
+    private void NavigateBack()
+    {
+        if (isClient)
+        {
+            NavigationManager.NavigateTo("/client");
+        }
+        else if (isAdminOrSuperAdmin)
+        {
+            NavigationManager.NavigateTo("/admin");
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+}

@@ -1,0 +1,18 @@
+@code {
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string ImageUrl { get; set; } = "img_avatar.png";
+}
+
+<div class="card">
+    <img src="@ImageUrl" alt="@Name" style="width:100%">
+    <div class="container">
+        <h4><b>@Name</b></h4>
+        <p>@Title</p>
+    </div>
+</div> 

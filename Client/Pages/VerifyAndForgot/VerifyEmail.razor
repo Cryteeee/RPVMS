@@ -1,0 +1,203 @@
+@page "/verify-email"
+@using BlazorApp1.Client.Services
+@using CurrieTechnologies.Razor.SweetAlert2
+@inject IAccountService AccountService
+@inject NavigationManager NavigationManager
+@inject SweetAlertService Swal
+@layout NoMenuLayout
+
+<HeadContent>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+</HeadContent>
+
+<style>
+    body {
+        background-image: url(/B3.jpg);
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-size: cover;
+        background-position: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .verification-container {
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 1rem;
+        overflow: hidden;
+    }
+
+    .verification-card {
+        background-color: rgba(250,250,250,0.3);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        border-radius: 15px;
+        padding: 2rem;
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+    }
+
+    .logo {
+        width: auto;
+        height: 6.5rem;
+        margin-bottom: 1rem;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+    }
+
+    .verification-title {
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        color: #333;
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: 3px;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    .btn-custom {
+        background-color: #F9B42D;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        font-weight: 600;
+        letter-spacing: 2px;
+        padding: 0.75rem 2rem;
+        text-transform: uppercase;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin-top: 1.5rem;
+    }
+
+    .btn-custom:hover {
+        background-color: #e6a012;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(249, 180, 45, 0.3);
+    }
+
+    .btn-custom:active {
+        transform: translateY(0);
+    }
+
+    .verification-message {
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        color: #333;
+        margin: 1rem 0;
+    }
+
+    .spinner-custom {
+        width: 3rem;
+        height: 3rem;
+        color: #F9B42D;
+    }
+
+    .icon-custom {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .icon-success {
+        color: #28a745;
+    }
+
+    .icon-error {
+        color: #dc3545;
+    }
+</style>
+
+<div class="verification-container">
+    <div class="text-center">
+        <img src="/LogoA2.png" alt="Roosevelt Park Village" class="logo" />
+        <div class="verification-card">
+            <h4 class="verification-title">Email Verification</h4>
+            @if (isVerifying)
+            {
+                <div class="verification-progress">
+                    <div class="spinner-border spinner-custom" role="status">
+                        <span class="visually-hidden">Verifying...</span>
+                    </div>
+                    <p class="verification-message">Verifying your email address...</p>
+                    <p class="text-muted">Please wait while we confirm your email</p>
+                </div>
+            }
+            else
+            {
+                <div class="verification-result">
+                    @if (isSuccess)
+                    {
+                        <i class="fas fa-check-circle icon-custom icon-success"></i>
+                        <h4 class="verification-message">Verification Successful!</h4>
+                        <p class="text-muted mb-4">@verificationMessage</p>
+                    }
+                    else
+                    {
+                        <i class="fas fa-times-circle icon-custom icon-error"></i>
+                        <h4 class="verification-message">Unable to Verify Email</h4>
+                        <p class="text-muted mb-4">@verificationMessage</p>
+                    }
+                    <button class="btn-custom" @onclick="NavigateToLogin">
+                        Return to Login
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isVerifying = true;
+    private bool isSuccess = false;
+    private string verificationMessage = string.Empty;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Token { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(Token))
+            {
+                isSuccess = false;
+                verificationMessage = "Invalid verification link. The token is missing.";
+                isVerifying = false;
+                return;
+            }
+
+            var response = await AccountService.VerifyEmailAsync(Token);
+            isSuccess = response.IsSuccess;
+            verificationMessage = response.Message;
+
+            if (isSuccess)
+            {
+                await Task.Delay(2000); // Show success message for 2 seconds
+                NavigateToLogin();
+            }
+        }
+        catch (Exception ex)
+        {
+            isSuccess = false;
+            verificationMessage = "An error occurred during verification. Please try again or contact support.";
+            await Swal.FireAsync("Error", "Failed to verify email address", SweetAlertIcon.Error);
+        }
+        finally
+        {
+            isVerifying = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateToLogin()
+    {
+        NavigationManager.NavigateTo("/Login", true);
+    }
+} 

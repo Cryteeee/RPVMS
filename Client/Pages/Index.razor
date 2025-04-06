@@ -1,0 +1,1022 @@
+﻿@page "/"
+@page "/{CarouselType}"
+@layout NavbarOverview
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Shared.Models
+@inject IEventService EventService
+@implements IDisposable
+
+<!--Carousel-->
+<div class="bg2">
+<div class="container">
+    <div class="content-section">
+    <div class="Carousel-container">
+    <div class="carousel-toggle">
+        <a href="/" class="toggle-button @(CarouselType == null || CarouselType == "image" ? "active" : "")">
+            <i class="fas fa-image"></i> IMAGE
+        </a>
+        <a href="/event" class="toggle-button @(CarouselType == "event" ? "active" : "")">
+            <i class="fas fa-calendar"></i> EVENT
+        </a>
+    </div>
+
+    @if (CarouselType == null || CarouselType == "image")
+    {
+        <div class="carousel active" style="display: block;">
+            <div class="carousel-inner">
+                @foreach (var item in propertyCarouselItems)
+                {
+                    <div class="carousel-item @(item == propertyCarouselItems[currentPropertyIndex] ? "active" : "")"
+                         style="position: relative;">
+                        <div class="carousel-background" style="background-image: url(@item.ImageUrl)"></div>
+                        <div class="carousel-overlay"></div>
+                        <div class="carousel-content">
+                            <div class="carousel-text">
+                                <span class="carousel-subtitle">@item.Subtitle</span>
+                                <h2>@item.Title</h2>
+                                <p>@item.Description</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <button class="carousel-control prev" @onclick="PreviousPropertySlide">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="carousel-control next" @onclick="NextPropertySlide">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+
+            <div class="carousel-indicators">
+                @for (int i = 0; i < propertyCarouselItems.Count; i++)
+                {
+                    var index = i;
+                    <div class="carousel-indicator @(i == currentPropertyIndex ? "active" : "")" 
+                         @onclick="() => GoToPropertySlide(index)"></div>
+                }
+            </div>
+        </div>
+        <div class="join-community-container">
+            <a href="/signup" class="join-community-button">
+                <span>Join Our Community</span>
+                <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    }
+
+    @if (CarouselType == "event")
+    {
+        <div class="carousel active" style="display: block;">
+            <div class="carousel-inner">
+                @if (events == null)
+                {
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else if (!events.Any())
+                {
+                    @foreach (var defaultItem in defaultEventItems)
+                    {
+                        <div class="carousel-item @(defaultItem == defaultEventItems[currentEventIndex] ? "active" : "")"
+                             style="position: relative;">
+                            <div class="carousel-background" style="background-image: url(@defaultItem.ImageUrl)"></div>
+                            <div class="carousel-overlay"></div>
+                            <div class="carousel-content">
+                                <div class="carousel-text">
+                                    <span class="carousel-subtitle">@defaultItem.Subtitle</span>
+                                    <h2>@defaultItem.Title</h2>
+                                    <p>@defaultItem.Description</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    @foreach (var eventItem in events)
+                    {
+                        <div class="carousel-item @(eventItem == events[currentEventIndex] ? "active" : "")"
+                             style="position: relative;">
+                            <div class="carousel-background" style="background-image: url(@(string.IsNullOrEmpty(eventItem.ImageUrl) ? "default-event.jpg" : eventItem.ImageUrl))"></div>
+                            <div class="carousel-overlay"></div>
+                            <div class="carousel-content">
+                                <div class="carousel-text">
+                                    <span class="carousel-subtitle">@eventItem.EventType</span>
+                                    <h2>@eventItem.Title</h2>
+                                    <p>@eventItem.Description</p>
+                                    <div class="small text-muted mb-2">
+                                        <div><i class="bi bi-calendar"></i> @eventItem.EventDate.ToShortDateString()</div>
+                                        <div><i class="bi bi-geo-alt"></i> @eventItem.Location</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+            <button class="carousel-control prev" @onclick="PreviousEventSlide">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="carousel-control next" @onclick="NextEventSlide">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+
+            <div class="carousel-indicators">
+                @{
+                    var indicatorCount = events?.Any() == true ? events.Count : defaultEventItems.Count;
+                }
+                @for (int i = 0; i < indicatorCount; i++)
+                {
+                    var index = i;
+                    <div class="carousel-indicator @(i == currentEventIndex ? "active" : "")" 
+                         @onclick="() => GoToEventSlide(index)"></div>
+                }
+            </div>
+        </div>
+    }
+    </div>
+    </div>
+    </div>
+</div>
+<!--About Us-->
+<div class="bg3">
+    <div class="container">
+    <div class="content-section">
+        <div class="about-us-container">
+            <div class="about-header">
+                <h2>About Roosevelt Park Village</h2>
+                <div class="header-underline"></div>
+            </div>
+            
+            <div class="about-grid">
+                <div class="about-card">
+                    <i class="fas fa-home"></i>
+                    <h3>Our Community</h3>
+                    <p>Welcome to Roosevelt Park Village, where community and comfort come together! As a proud homeowner association, we're dedicated to enhancing the quality of life for all our residents.</p>
+                </div>
+                
+                <div class="about-card">
+                    <i class="fas fa-heart"></i>
+                    <h3>Our Values</h3>
+                    <p>We believe in fostering a strong sense of belonging, promoting neighborly connections, and maintaining the highest standards of community living.</p>
+                </div>
+                
+                <div class="about-card">
+                    <i class="fas fa-star"></i>
+                    <h3>Our Commitment</h3>
+                    <p>Our dedicated team works tirelessly to ensure our community remains beautiful, safe, and welcoming for all residents.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+<div class="bg1c">
+            <div class="about-cta">
+                <h3>Join Our Community</h3>
+                <p>Be part of something special. Together, let's create a home that we can all be proud of!</p>
+    <a href="/ContactUs" class="cta-button">Get in Touch</a>
+</div>
+</div>
+<!--Feature-->
+<div class="bg1">
+    <div class="container">
+    <div class="content-section">
+        <div class="features-container">
+            <div class="about-header">
+                <h2>Our Features</h2>
+                <div class="header-underline"></div>
+            </div>
+            
+            <div class="about-grid">
+                <div class="about-card">
+                    <i class="fas fa-headset"></i>
+                    <h3>Dedicated Support</h3>
+                    <p>Our dedicated team is here to help you with any concern you might have, providing full details about your home management.</p>
+                </div>
+                
+                <div class="about-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <h3>Event Management</h3>
+                    <p>Our dedicated team will announce future events with ease, allowing homeowners to see past, present, and future community activities.</p>
+                </div>
+                
+                <div class="about-card">
+                    <i class="fas fa-handshake"></i>
+                    <h3>Community Events</h3>
+                    <p>Regular social gatherings, cultural events, and community celebrations to bring our residents together.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<style>
+    .container {
+        padding: 1rem;
+        max-width:1200px;
+        margin: 0 auto;
+        min-height: calc(100vh-60px); /*Subtract navbar Height*/ 
+        width: 100%;
+        position: relative;
+    }
+  
+/*Background*/
+    .container-bg
+    {
+
+    }
+
+    .bg1 {
+        background-image: url(/Wave.svg);
+        background-size:100% 100%;
+        background-position: center;
+        background-repeat: no-repeat;
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .bg2 {
+        background-image: url(/Wave1.svg);
+        background-size: 100% 100%;
+        background-position: center;
+        background-repeat: no-repeat;
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .bg3 {
+        background-image: url(/Wave2.svg);
+        background-size: 100% 100%;
+        background-position: center;
+        background-repeat: no-repeat;
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+    .bg1c
+    {
+        background-color:rgba(255,200,44,1);
+    }
+
+/*Carousel*/
+    .Carousel-container {
+        padding: 6rem 3rem;  /* Increased padding */
+        background-image: url(/B3A-1.jpg);
+        background-size: cover;  /* Changed to cover for better image handling */
+        background-position: center;
+        background-repeat: no-repeat;
+        border-radius: 24px;  /* Increased border radius */
+        margin: 1rem 0;
+        position: relative;
+        height: 100%;
+        width: 100%;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);  /* Added shadow for depth */
+    }
+
+    .Carousel-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.6);  /* Darkened overlay */
+        border-radius: 24px;
+        backdrop-filter: blur(4px);  /* Added blur effect */
+    }
+
+    @@media screen and (max-width: 768px) {
+        .Carousel-container {
+            padding: 4rem 2rem;
+        }
+    }
+    .carousel-toggle {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .toggle-button {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        color: #6c757d;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .toggle-button i {
+        font-size: 1.2rem;
+    }
+
+    .toggle-button.active {
+        background-color: rgba(255,200,44,1);
+        color: white;
+        box-shadow: 0 4px 12px rgba(0,123,255,0.2);
+    }
+
+    .toggle-button:not(.active) {
+        background-color: rgba(0,0,0,1);
+        color:white;
+    }
+
+    .toggle-button:hover:not(.active) {
+        background-color: rgba(255,200,44,1);
+    }
+
+    .carousel {
+        position: relative;
+        width: 100%;
+        height: 500px;
+        overflow: hidden;
+        border-radius: 16px;
+        margin-bottom: 2.5rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        display: none;
+        background-color: #000;
+    }
+
+    .carousel.active {
+        display: block;
+    }
+
+    .carousel-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .carousel-item {
+        display: none;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        opacity: 0;
+        transition: opacity 0.8s ease-in-out;
+    }
+
+    .carousel-item.active {
+        display: block;
+        opacity: 1;
+    }
+
+    .carousel-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        transition: transform 0.8s ease;
+    }
+
+    .carousel-item:hover .carousel-background {
+        transform: scale(1.05);
+    }
+
+    .carousel-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+            90deg,
+            rgba(0, 0, 0, 0.95) 0%,
+            rgba(0, 0, 0, 0.8) 25%,
+            rgba(0, 0, 0, 0.6) 50%,
+            rgba(0, 0, 0, 0.4) 75%,
+            rgba(0, 0, 0, 0.2) 100%
+        );
+    }
+
+    .carousel-content {
+        position: relative;
+        display: flex;
+        align-items: center;
+        height: 100%;
+        padding: 0 6rem;  /* Increased horizontal padding */
+    }
+
+    .carousel-text {
+        max-width: 600px;
+        color: #fff;
+        text-align: left;
+        opacity: 0;
+        transform: translateX(-20px);
+        animation: slideIn 0.8s forwards;
+        background-color: rgba(0, 0, 0, 0.6);
+        padding: 2.5rem;
+        border-radius: 16px;
+        border-left: 6px solid rgba(255,200,44,1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    @@keyframes slideIn {
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .carousel-subtitle {
+        display: inline-block;
+        background-color: rgba(255,200,44,1);
+        color: #000;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1.2rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        box-shadow: 0 4px 12px rgba(255,200,44,0.3);
+    }
+
+    .carousel-text h2 {
+        font-size: 2.8rem;
+        font-weight: 800;
+        margin-bottom: 1.2rem;
+        line-height: 1.2;
+        color: rgba(255,200,44,1);
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        letter-spacing: -0.5px;
+    }
+
+    .carousel-text p {
+        font-size: 1.2rem;
+        margin-bottom: 1.8rem;
+        line-height: 1.6;
+        opacity: 0.95;
+        color: #fff;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .carousel-button {
+        display: inline-block;
+        padding: 1rem 2rem;  /* Increased padding */
+        background-color: rgba(255,200,44,1);
+        color: #000;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        font-size: 1.1rem;  /* Slightly increased */
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 2px solid rgba(255,200,44,1);
+    }
+
+    .carousel-button:hover {
+        transform: translateY(-2px);
+        background-color: #000;
+        color: rgba(255,200,44,1);
+        box-shadow: 0 4px 12px rgba(255,200,44,0.3);
+    }
+
+    .carousel-control {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 60px;
+        height: 60px;
+        background-color: rgba(0, 0, 0, 0.8);
+        border: 3px solid rgba(255,200,44,1);
+        border-radius: 50%;
+        color: rgba(255,200,44,1);
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 3;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+    }
+
+    .carousel-control:hover {
+        background-color: rgba(255,200,44,1);
+        border-color: rgba(255,200,44,1);
+        color: #000;
+        opacity: 1;
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .carousel-control.prev {
+        left: 20px;
+    }
+
+    .carousel-control.next {
+        right: 20px;
+    }
+
+    .carousel-indicators {
+        position: absolute;
+        bottom: 2.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        z-index: 3;
+    }
+
+    .carousel-indicator {
+        width: 40px;
+        height: 4px;
+        background-color: rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-radius: 2px;
+        border: 1px solid rgba(255,200,44,0.3);
+    }
+
+    .carousel-indicator:hover {
+        background-color: rgba(255,200,44,0.5);
+    }
+
+    .carousel-indicator.active {
+        background-color: rgba(255,200,44,1);
+        border-color: rgba(255,200,44,1);
+        width: 60px;
+    }
+
+    .content-section {
+        text-align: center;
+        padding: 2rem 0;
+        margin-top: auto;
+        margin-bottom: 0;
+    }
+
+    .content-section h1 {
+        font-size: 2.5rem;
+        color: #212529;
+        margin-bottom: 1rem;
+    }
+
+    .content-section p {
+        font-size: 1.2rem;
+        color: #6c757d;
+    }
+
+    @@media screen and (max-width: 992px) {
+        .carousel {
+            height: 450px;
+        }
+
+        .carousel-text {
+            max-width: 500px;
+        }
+
+        .carousel-text h2 {
+            font-size: 2.25rem;
+        }
+    }
+
+    @@media screen and (max-width: 768px) {
+        .carousel {
+            height: 400px;
+        }
+
+        .carousel-content {
+            padding: 0 3rem;
+        }
+
+        .carousel-text {
+            max-width: 100%;
+            text-align: center;
+            padding: 1.5rem;
+            margin: 0 1rem;
+            border-left: none;
+            border-bottom: 4px solid rgba(255,200,44,1);
+        }
+
+        .carousel-text h2 {
+            font-size: 2rem;
+        }
+
+        .carousel-overlay {
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 0, 0, 0.8) 0%,
+                rgba(0, 0, 0, 0.6) 100%
+            );
+        }
+    }
+
+    @@media screen and (max-width: 480px) {
+        .carousel {
+            height: 350px;
+            border-radius: 8px;
+        }
+
+        .carousel-content {
+            padding: 0 2rem;
+        }
+
+        .carousel-text {
+            padding: 1rem;
+        }
+
+        .carousel-text h2 {
+            font-size: 1.75rem;
+        }
+
+        .carousel-text p {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+    }
+    /*About Us*/
+    .card
+    {
+        max-height:1200px;
+    }
+
+    .about-us-container {
+        padding: 4rem 2rem;
+        background-image: url(/B3A-2.jpg);
+        background-size: 100% 100%;
+        background-position: center;
+        background-repeat: no-repeat;
+        border-radius: 16px;
+        margin: 2rem 0;
+        position: relative;
+        height: 100%;
+        width: 100%;
+    }
+
+    .about-us-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 16px;
+    }
+
+    .about-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .about-header h2 {
+        font-size: 2.5rem;
+        color: white;
+        margin-bottom: 1rem;
+    }
+
+    .header-underline {
+        width: 80px;
+        height: 4px;
+        background-color: rgba(255,200,44,1);
+        margin: 0 auto;
+        border-radius: 2px;
+    }
+
+    .about-grid {
+        display: grid;
+        position: relative;
+        z-index: 1;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .about-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .about-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .about-card i {
+        font-size: 2.5rem;
+        color: rgba(255,200,44,1);
+        margin-bottom: 1rem;
+    }
+
+    .about-card h3 {
+        font-size: 1.5rem;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .about-card p {
+        color: #666;
+        line-height: 1.6;
+    }
+
+    .about-cta {
+        text-align: center;
+        background: linear-gradient(135deg, rgba(255,200,44,1), rgba(255,200,44,0.8));
+        padding: 3rem;
+        border-radius: 12px;
+        color: white;
+        position: relative;
+        z-index: 1;
+    }
+
+    .about-cta h3 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .about-cta p {
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+    }
+
+    .cta-button {
+        display: inline-block;
+        padding: 1rem 2rem;
+        background-color: white;
+        color: #333;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .cta-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    @@media screen and (max-width: 768px) {
+        .about-us-container {
+            padding: 2rem 1rem;
+        }
+
+        .about-header h2 {
+            font-size: 2rem;
+        }
+
+        .about-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .about-cta {
+            padding: 2rem;
+        }
+
+        .about-cta h3 {
+            font-size: 1.75rem;
+        }
+    }
+    /*Features*/
+    .features-container {
+        padding: 4rem 2rem;
+        background-image: url(/B3A-3.jpg);
+        background-size: 100% 100%;
+        background-position: center;
+        background-repeat: no-repeat;
+        border-radius: 16px;
+        margin: 2rem 0;
+        position: relative;
+        height: 100%;
+        width: 100%;
+    }
+
+    .features-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 16px;
+    }
+
+    @@media screen and (max-width: 768px) {
+        .features-container {
+            padding: 2rem 1rem;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string? CarouselType { get; set; }
+
+    private int currentPropertyIndex = 0;
+    private int currentEventIndex = 0;
+    private List<EventListDto>? events;
+    private Timer? autoSwitchTimer;
+    private const int AUTO_SWITCH_INTERVAL = 5000; // 5 seconds
+
+    private List<DefaultEventItem> defaultEventItems = new()
+    {
+        new DefaultEventItem 
+        { 
+            Title = "Community Events", 
+            Subtitle = "Events",
+            Description = "Stay connected with your community through organized events and activities.",
+            ImageUrl = "House1.jpg"
+        },
+        new DefaultEventItem 
+        { 
+            Title = "Resident Portal", 
+            Subtitle = "Services",
+            Description = "Access all community resources and services through our user-friendly portal.",
+            ImageUrl = "House2.jpg"
+        },
+        new DefaultEventItem 
+        { 
+            Title = "Maintenance Services", 
+            Subtitle = "Support",
+            Description = "Quick and efficient maintenance service requests for all community members.",
+            ImageUrl = "House3.jpg"
+        },
+        new DefaultEventItem 
+        { 
+            Title = "Community Living", 
+            Subtitle = "Lifestyle",
+            Description = "Experience the best of community living with our premium amenities and services.",
+            ImageUrl = "House4.jpg"
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CarouselType == "event")
+        {
+            await LoadEvents();
+        }
+        StartAutoSwitch();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (CarouselType == "event" && events == null)
+        {
+            await LoadEvents();
+        }
+    }
+
+    private async Task LoadEvents()
+    {
+        try
+        {
+            events = await EventService.GetActiveEventsAsync();
+        }
+        catch (Exception)
+        {
+            events = new List<EventListDto>();
+        }
+    }
+
+    private List<CarouselItem> propertyCarouselItems = new()
+    {
+        new CarouselItem 
+        { 
+            Title = "Luxury Living at Roosevelt Park", 
+            Subtitle = "Featured Property",
+            Description = "Discover our newest luxury homes with modern amenities and spacious layouts, perfect for families seeking comfort and elegance.",
+            ImageUrl = "House1.jpg",
+            ButtonText = "View Properties",
+            ButtonUrl = "/properties",
+            BackgroundColor = "#4CAF50"
+        },
+        new CarouselItem 
+        { 
+            Title = "Resort-Style Community", 
+            Subtitle = "Lifestyle",
+            Description = "Experience resort-style living with our premium amenities including pools, tennis courts, and beautifully landscaped walking trails.",
+            ImageUrl = "House2.jpg",
+            ButtonText = "Explore Amenities",
+            ButtonUrl = "/amenities",
+            BackgroundColor = "#2196F3"
+        },
+        new CarouselItem 
+        { 
+            Title = "Family-Friendly Neighborhood", 
+            Subtitle = "Community",
+            Description = "Join our welcoming community where families thrive, featuring parks, playgrounds, and regular social events for all ages.",
+            ImageUrl = "House3.jpg",
+            ButtonText = "Join Community",
+            ButtonUrl = "/membership",
+            BackgroundColor = "#9C27B0"
+        },
+        new CarouselItem 
+        { 
+            Title = "Exclusive Gated Community", 
+            Subtitle = "Security",
+            Description = "Enjoy peace of mind in our gated community with 24/7 security, private access, and professional property management.",
+            ImageUrl = "House4.jpg",
+            ButtonText = "Learn More",
+            ButtonUrl = "/lifestyle",
+            BackgroundColor = "#FF5722"
+        }
+    };
+
+    private void NextPropertySlide()
+    {
+        currentPropertyIndex = (currentPropertyIndex + 1) % propertyCarouselItems.Count;
+    }
+
+    private void PreviousPropertySlide()
+    {
+        currentPropertyIndex = (currentPropertyIndex - 1 + propertyCarouselItems.Count) % propertyCarouselItems.Count;
+    }
+
+    private void GoToPropertySlide(int index)
+    {
+        currentPropertyIndex = index;
+    }
+
+    private void NextEventSlide()
+    {
+        var count = events?.Any() == true ? events.Count : defaultEventItems.Count;
+        currentEventIndex = (currentEventIndex + 1) % count;
+    }
+
+    private void PreviousEventSlide()
+    {
+        var count = events?.Any() == true ? events.Count : defaultEventItems.Count;
+        currentEventIndex = (currentEventIndex - 1 + count) % count;
+    }
+
+    private void GoToEventSlide(int index)
+    {
+        var count = events?.Any() == true ? events.Count : defaultEventItems.Count;
+        if (index < count)
+        {
+            currentEventIndex = index;
+        }
+    }
+
+    private void StartAutoSwitch()
+    {
+        autoSwitchTimer = new Timer(AutoSwitch, null, AUTO_SWITCH_INTERVAL, AUTO_SWITCH_INTERVAL);
+    }
+
+    private void AutoSwitch(object? state)
+    {
+        InvokeAsync(() =>
+        {
+            if (CarouselType == "event")
+            {
+                NextEventSlide();
+            }
+            else
+            {
+                NextPropertySlide();
+            }
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        autoSwitchTimer?.Dispose();
+    }
+
+    private class DefaultEventItem
+    {
+        public string Title { get; set; }
+        public string Subtitle { get; set; }
+        public string Description { get; set; }
+        public string ImageUrl { get; set; }
+    }
+
+    public class CarouselItem
+    {
+        public string Title { get; set; }
+        public string Subtitle { get; set; }
+        public string Description { get; set; }
+        public string ImageUrl { get; set; }
+        public string ButtonText { get; set; }
+        public string ButtonUrl { get; set; }
+        public string BackgroundColor { get; set; }
+    }
+}

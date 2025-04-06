@@ -1,0 +1,1555 @@
+﻿@page "/admin/concerns"
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Enums
+@using CurrieTechnologies.Razor.SweetAlert2
+@using System.Timers
+@using BlazorApp1.Client.Services
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+@inject HttpClient Http
+@inject IContactService ContactService
+@inject ISubmissionService SubmissionService
+@inject ILogger<ConcernsRequest> Logger
+@inject SweetAlertService Swal
+@inject IPdfService PdfService
+@inject IJSRuntime JSRuntime
+@inject INotificationService NotificationService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="page-container">
+    <div class="concerns-list">
+        <div class="header-section">
+            <div class="d-flex align-items-center mb-4">
+                <i class="fas fa-clipboard-list text-warning me-2"></i>
+                <h2 class="mb-0">Concerns & Requests</h2>
+            </div>
+            <div class="filters mb-4">
+                <div class="filter-group">
+                    <select class="filter-select" @bind="selectedPriority">
+                        <option value="">All Priority Levels</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                    </select>
+                    <select class="filter-select" @bind="dateSort">
+                        <option value="latest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <select class="filter-select" @bind="selectedFormType">
+                        <option value="">All Types</option>
+                        <option value="Concern">Concerns</option>
+                        <option value="Request">Requests</option>
+                        <option value="Suggestion">Suggestions</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        @if (concerns == null)
+        {
+            <div class="loading-state">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                <p>Loading concerns...</p>
+            </div>
+        }
+        else if (!concerns.Any())
+        {
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No concerns or requests found</p>
+            </div>
+        }
+        else
+        {
+            <div class="concerns-items">
+                @foreach (var concern in FilteredConcerns)
+                {
+                    <div class="concern-item @(concern == selectedConcernVM ? "active" : "") @(concern.IsClientSubmission ? "client-submission" : "non-client-submission")"
+                         @onclick="() => HandleConcernClick(concern)">
+                        <div class="concern-header">
+                            <div class="d-flex align-items-center">
+                                @if (concern.IsClientSubmission)
+                                {
+                                    <span class="client-badge me-2">
+                                        <i class="fas fa-user-circle me-1"></i>
+                                        Client
+                                    </span>
+                                }
+                                <h5 class="concern-title mb-0">
+                                    @concern.Title
+                                </h5>
+                            </div>
+                            <div class="status-badge @concern.Status.ToString().ToLower()">
+                                <i class="fas @GetStatusIcon(concern.Status) me-1"></i>
+                                @GetStatusDisplay(concern.Status)
+                            </div>
+                        </div>
+                        <div class="concern-meta">
+                            <div class="meta-item">
+                                <i class="fas fa-user me-1"></i>
+                                @if (concern.IsClientSubmission)
+                                {
+                                    <span class="client-email">
+                                        <i class="fas fa-envelope me-1"></i>
+                                        @concern.UserEmail
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span>@concern.UserEmail</span>
+                                }
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-calendar me-1"></i>
+                                @concern.DateSubmitted.ToString("MMM dd, yyyy")
+                            </div>
+                        </div>
+                        <p class="concern-description">@concern.Description</p>
+                        <div class="concern-tags">
+                            <span class="tag @(concern.IsClientSubmission ? "client" : "") @concern.FormType.ToString().ToLower()">
+                                <i class="fas fa-tag me-1"></i>
+                                @concern.FormType
+                            </span>
+                            <span class="tag @(concern.IsClientSubmission ? "client" : "") priority">
+                                <i class="fas fa-flag me-1"></i>
+                                @concern.PriorityLevel
+                            </span>
+                            @if (concern.UrgencyLevel.HasValue)
+                            {
+                                <span class="tag @(concern.IsClientSubmission ? "client" : "") urgency">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    @concern.UrgencyLevel
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="pagination">
+                <button class="pagination-btn" @onclick="PreviousPage" disabled="@(currentPage == 1)">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="page-info">Page @currentPage of @TotalPages (@concerns.Count items)</span>
+                <button class="pagination-btn" @onclick="NextPage" disabled="@(currentPage == TotalPages)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        }
+    </div>
+
+    @if (selectedConcernVM != null)
+    {
+        <div class="details-panel @(selectedConcernVM != null ? "show" : "")">
+            <div class="details-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h3>@selectedConcernVM.Title</h3>
+                    <button class="btn-close" @onclick="CloseDetails"></button>
+                </div>
+                <div class="details-meta">
+                    <div class="meta-date">
+                        <i class="fas fa-calendar"></i>
+                        @selectedConcernVM.DateSubmitted.ToString("MMMM dd, yyyy")
+                    </div>
+                    <div class="status-badge @selectedConcernVM.Status.ToString().ToLower()">
+                        @selectedConcernVM.Status
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-content">
+                <div class="detail-section">
+                    <h6>Priority</h6>
+                    <p>@selectedConcernVM.PriorityLevel</p>
+                </div>
+
+                <div class="detail-section">
+                    <h6>Urgency</h6>
+                    <p>@(selectedConcernVM.UrgencyLevel?.ToString() ?? "Low")</p>
+                </div>
+
+                <div class="detail-section">
+                    <h6>Description</h6>
+                    <div class="description-box">
+                        @selectedConcernVM.Description
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-actions">
+                <div class="action-group">
+                    @if (isSuperAdmin || user.IsInRole("Admin"))
+                    {
+                        <button class="btn btn-outline-danger @(selectedConcernVM.Status == SubmissionStatus.Resolved ? "disabled" : "")" 
+                                @onclick="() => DeleteConcern(selectedConcernVM)"
+                                disabled="@(selectedConcernVM.Status == SubmissionStatus.Resolved)">
+                            <i class="fas fa-trash-alt me-2"></i>
+                            Delete
+                        </button>
+                    }
+                    <button class="btn btn-outline-primary" @onclick="() => PrintConcern(selectedConcernVM)">
+                        <i class="fas fa-print me-2"></i>
+                        Print Report
+                    </button>
+                </div>
+                @if (selectedConcernVM.Status != SubmissionStatus.Rejected)
+                {
+                    <button class="btn @(selectedConcernVM.Status == SubmissionStatus.Resolved ? "btn-secondary" : "btn-warning")"
+                            @onclick="() => UpdateStatus(selectedConcernVM.Status == SubmissionStatus.Resolved ? SubmissionStatus.Pending : SubmissionStatus.Resolved)">
+                        <i class="fas @(selectedConcernVM.Status == SubmissionStatus.Resolved ? "fa-undo" : "fa-check") me-2"></i>
+                        @(selectedConcernVM.Status == SubmissionStatus.Resolved ? "Unresolve" : "Mark as Resolved")
+                    </button>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .page-container {
+        display: flex;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        height: calc(100vh - 64px);
+        background: #f8f9fa;
+        overflow: hidden;
+    }
+
+    .concerns-list {
+        flex: 1;
+        max-width: 800px;
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .header-section h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .filter-group {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .filter-select {
+        padding: 0.5rem 1rem;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        background-color: white;
+        color: #495057;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 150px;
+    }
+
+    .filter-select:hover {
+        border-color: #FFB800;
+    }
+
+    .filter-select:focus {
+        outline: none;
+        border-color: #FFB800;
+        box-shadow: 0 0 0 2px rgba(255, 184, 0, 0.1);
+    }
+
+    .concerns-items {
+        flex: 1;
+        overflow-y: auto;
+        margin: 0 -1.5rem;
+        padding: 0 1.5rem;
+    }
+
+    .concern-item {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .concern-item:hover {
+        transform: translateX(4px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .concern-item.active {
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+
+    /* Client submission specific styles */
+    .concern-item.client-submission {
+        border-left: 4px solid #FFB800;
+        background-color: #fff8e6;
+    }
+
+    .concern-item.client-submission:hover {
+        background-color: #fff3d6;
+        border-color: #FFB800;
+        box-shadow: 0 2px 12px rgba(255, 184, 0, 0.15);
+    }
+
+    .concern-item.client-submission.active {
+        background-color: #fff0cc;
+        border-color: #FFB800;
+        box-shadow: 0 4px 12px rgba(255, 184, 0, 0.2);
+    }
+
+    /* Non-client submission specific styles */
+    .concern-item.non-client-submission {
+        border-left: 4px solid #6c757d;
+        background-color: #ffffff;
+    }
+
+    .concern-item.non-client-submission:hover {
+        background-color: #f8f9fa;
+        border-color: #6c757d;
+        box-shadow: 0 2px 12px rgba(108, 117, 125, 0.15);
+    }
+
+    .concern-item.non-client-submission.active {
+        background-color: #f1f3f5;
+        border-color: #6c757d;
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+    }
+
+    .client-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: #FFB800;
+        color: #000;
+    }
+
+    .client-email {
+        color: #000;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background: rgba(255, 184, 0, 0.15);
+        border-radius: 20px;
+    }
+
+    /* Tag styles for client submissions */
+    .concern-item.client-submission .tag {
+        background: rgba(255, 184, 0, 0.1);
+        color: #000;
+    }
+
+    .concern-item.client-submission .tag.priority {
+        background: rgba(255, 152, 0, 0.1);
+        color: #000;
+    }
+
+    .concern-item.client-submission .tag.urgency {
+        background: rgba(255, 184, 0, 0.15);
+        color: #000;
+    }
+
+    /* Status badge styles for client submissions */
+    .concern-item.client-submission .status-badge.pending {
+        background: #FFB800;
+        color: #000;
+    }
+
+    .concern-item.client-submission .status-badge.inprogress {
+        background: #FF9800;
+        color: #000;
+    }
+
+    .concern-item.client-submission .status-badge.resolved {
+        background: #4CAF50;
+        color: white;
+    }
+
+    /* Additional client submission tag styles */
+    .tag.client {
+        background: rgba(255, 184, 0, 0.1);
+        color: #000;
+    }
+
+    .tag.client.priority {
+        background: rgba(255, 152, 0, 0.1);
+        color: #000;
+    }
+
+    .tag.client.urgency {
+        background: rgba(255, 184, 0, 0.15);
+        color: #000;
+    }
+
+    .concern-item:not(.client-submission) {
+        background: #ffffff;
+        border-left: 4px solid #6c757d;
+    }
+
+    .concern-item:not(.client-submission):hover {
+        background: #f8f9fa;
+        border-color: #6c757d;
+    }
+
+    .concern-item:not(.client-submission).active {
+        background: #f1f3f5;
+        border-color: #6c757d;
+    }
+
+    .concern-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+    }
+
+    .concern-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #495057;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .concern-meta {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    .concern-description {
+        color: #495057;
+        font-size: 0.9rem;
+        margin: 0.75rem 0;
+        line-height: 1.5;
+    }
+
+    .concern-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .tag.concern {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .tag.request {
+        background: #cce5ff;
+        color: #004085;
+    }
+
+    .tag.suggestion {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .details-panel {
+        flex: 1;
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        animation: slideIn 0.3s ease-out;
+        display: flex;
+        flex-direction: column;
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .details-header {
+        border-bottom: 1px solid #e9ecef;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .details-header h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #212529;
+        margin: 0 0 1rem 0;
+    }
+
+    .details-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .meta-date {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .details-content {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .detail-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-section h6 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .description-box {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        color: #495057;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+
+    .details-actions {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-warning {
+        background: #FFB800;
+        border-color: #FFB800;
+        color: #000;
+    }
+
+    .btn-warning:hover {
+        background: #ffc835;
+        border-color: #ffc835;
+    }
+
+    .pagination {
+        margin-top: auto;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .pagination-btn {
+        background: none;
+        border: none;
+        color: #495057;
+        padding: 0.5rem;
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+        color: #FFB800;
+    }
+
+    .pagination-btn:disabled {
+        color: #adb5bd;
+        cursor: not-allowed;
+    }
+
+    .page-info {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .loading-state, .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+
+    .loading-state i, .empty-state i {
+        font-size: 2rem;
+        color: #FFB800;
+        margin-bottom: 1rem;
+    }
+
+    .status-badge i {
+        font-size: 0.85rem;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+
+    /* Status badge styles */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    /* Default status badges (for non-client submissions) */
+    .status-badge.pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-badge.inprogress {
+        background: #cce5ff;
+        color: #004085;
+    }
+
+    .status-badge.resolved {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-badge.deleted {
+        background: #f8d7da;
+        color: #721c24;
+    }
+</style>
+
+@code {
+    private List<BlazorApp1.Shared.Models.ConcernViewModel> concerns = new();
+    private BlazorApp1.Shared.Models.ConcernViewModel selectedConcernVM;
+    private bool[] messageStates;
+    private string[] concernTypes = { "Suggestion", "Concern", "Request" };
+    private string[] priorityLevels = { "Low", "Medium", "High", "Critical" };
+    private int currentPage = 1;
+    private int itemsPerPage = 10;
+    private string selectedPriority = "";
+    private string dateSort = "latest";
+    private bool isPrinting = false;
+    private bool showPrintOptions = false;
+    private bool isSuperAdmin;
+    private Dictionary<string, string> userRoles = new();
+    private string selectedFormType = "";
+    private ClaimsPrincipal user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = authState.User;
+        isSuperAdmin = user.IsInRole("SuperAdmin");
+        await LoadSubmissions();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reload data when navigating back to the page
+        await LoadSubmissions();
+    }
+
+    private async Task LoadSubmissions()
+    {
+        try
+        {
+            // Clear existing data first
+            concerns = new List<BlazorApp1.Shared.Models.ConcernViewModel>();
+            
+            // Get submissions from the admin endpoint
+            var response = await Http.GetAsync("api/submissions/all");
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogError($"Failed to get submissions. Status code: {response.StatusCode}");
+                throw new Exception("Failed to load submissions from server");
+            }
+            
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new JsonStringEnumConverter() }
+            };
+            
+            var submissions = await response.Content.ReadFromJsonAsync<List<BlazorApp1.Shared.Models.SubmissionDto>>(options);
+            if (submissions != null)
+            {
+                // Convert submissions to view models and filter out archived ones
+                var submissionConcerns = submissions
+                    .Where(s => s.Status != SubmissionStatus.Archived) // Filter out archived submissions
+                    .Select(s => new BlazorApp1.Shared.Models.ConcernViewModel
+                    {
+                        Id = s.Id,
+                        Title = s.Subject ?? string.Empty,
+                        Description = s.Description ?? string.Empty,
+                        FormType = GetFormType(s.Type ?? string.Empty),
+                        PriorityLevel = GetPriorityLevel(s.Priority ?? string.Empty),
+                        UrgencyLevel = GetUrgencyLevel(s.Priority ?? string.Empty),
+                        DateSubmitted = s.SubmittedDate,
+                        Status = s.Status,
+                        IsRead = true,
+                        UserEmail = s.UserEmail ?? s.UserId.ToString(),
+                        Location = s.Location ?? string.Empty,
+                        Category = s.Category ?? string.Empty,
+                        IsClientSubmission = s.IsClientSubmission
+                    }).ToList();
+
+                // Get contact forms
+                var contactForms = await ContactService.GetConcernsAsync();
+                var filteredContactForms = contactForms?
+                    .Where(c => c.Status != SubmissionStatus.Archived)
+                    .ToList() ?? new List<BlazorApp1.Shared.Models.ConcernViewModel>();
+
+                // Combine lists and ensure client submissions are included
+                concerns = filteredContactForms.Concat(submissionConcerns).ToList();
+                messageStates = new bool[concerns.Count];
+
+                // Update read status
+                foreach (var concern in concerns)
+                {
+                    var notification = NotificationService.UnreadMessages
+                        .FirstOrDefault(m => m.Content.Contains(concern.Title));
+                    if (notification != null)
+                    {
+                        concern.IsRead = false;
+                    }
+                }
+
+                // Log the number of client submissions found
+                var clientSubmissions = concerns.Count(c => c.IsClientSubmission);
+                Logger.LogInformation($"Found {clientSubmissions} client submissions out of {concerns.Count} total submissions");
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading submissions");
+            await Swal.FireAsync("Error", "Failed to load submissions. Please try again later.", SweetAlertIcon.Error);
+            concerns = new List<BlazorApp1.Shared.Models.ConcernViewModel>();
+        }
+    }
+
+    private FormType GetFormType(string type) => type.ToLower() switch
+    {
+        "concern" => FormType.Concern,
+        "request" => FormType.Request,
+        "suggestion" => FormType.Suggestion,
+        _ => FormType.Concern
+    };
+
+    private PriorityLevel? GetPriorityLevel(string priority) => priority?.ToLower() switch
+    {
+        "low" => PriorityLevel.Low,
+        "medium" => PriorityLevel.Medium,
+        "high" => PriorityLevel.High,
+        "critical" => PriorityLevel.Critical,
+        _ => null
+    };
+
+    private UrgencyLevel? GetUrgencyLevel(string priority) => priority?.ToLower() switch
+    {
+        "low" => UrgencyLevel.Low,
+        "medium" => UrgencyLevel.Medium,
+        "high" => UrgencyLevel.High,
+        "critical" => UrgencyLevel.Critical,
+        _ => null
+    };
+
+    private string GetUserRole(string userEmail)
+    {
+        if (string.IsNullOrEmpty(userEmail)) return "User";
+        return userRoles.GetValueOrDefault(userEmail, "User");
+    }
+
+    private IEnumerable<BlazorApp1.Shared.Models.ConcernViewModel> FilteredConcerns
+    {
+        get
+        {
+            if (concerns == null) return Enumerable.Empty<BlazorApp1.Shared.Models.ConcernViewModel>();
+
+            var filtered = concerns.Where(c => 
+                c.Status != SubmissionStatus.Deleted && 
+                c.Status != SubmissionStatus.Archived &&
+                !(c.IsClientSubmission && c.Status == SubmissionStatus.Resolved));
+
+            // Apply priority filter
+            if (!string.IsNullOrEmpty(selectedPriority))
+            {
+                filtered = filtered.Where(c => 
+                    (c.PriorityLevel?.ToString() == selectedPriority) ||
+                    (c.UrgencyLevel?.ToString() == selectedPriority));
+            }
+
+            // Apply form type filter
+            if (!string.IsNullOrEmpty(selectedFormType))
+            {
+                filtered = filtered.Where(c => c.FormType.ToString() == selectedFormType);
+            }
+
+            // Apply date sorting
+            filtered = dateSort == "latest" 
+                ? filtered.OrderByDescending(c => c.DateSubmitted)
+                : filtered.OrderBy(c => c.DateSubmitted);
+
+            // Ensure client submissions are included and shown first
+            filtered = filtered.OrderByDescending(c => c.IsClientSubmission)
+                             .ThenByDescending(c => c.DateSubmitted);
+
+            return filtered.Skip((currentPage - 1) * itemsPerPage).Take(itemsPerPage);
+        }
+    }
+
+    private int TotalPages => (int)Math.Ceiling(concerns.Count / (double)itemsPerPage);
+
+    private async Task HandleConcernClick(BlazorApp1.Shared.Models.ConcernViewModel concern)
+    {
+        if (concern == null) return;
+        
+        selectedConcernVM = concern;
+
+        try
+        {
+            // Check if this is a client submission and status is Pending
+            if (concern.IsClientSubmission && concern.Status == SubmissionStatus.Pending)
+            {
+                try
+                {
+                    Logger.LogInformation($"Updating status for client submission {concern.Id} from Pending to InProgress");
+
+                    // Update the submission status to InProgress
+                    var response = await Http.PutAsJsonAsync($"api/submissions/{concern.Id}/status", SubmissionStatus.InProgress);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Update the status in the UI
+                        concern.Status = SubmissionStatus.InProgress;
+                        
+                        // Update the concern in the list
+                        var concernInList = concerns.FirstOrDefault(c => c.Id == concern.Id);
+                        if (concernInList != null)
+                        {
+                            concernInList.Status = SubmissionStatus.InProgress;
+                        }
+
+                        await Swal.FireAsync(
+                            "Status Updated",
+                            "The submission has been moved to In Progress.",
+                            SweetAlertIcon.Success
+                        );
+                        
+                        StateHasChanged();
+                    }
+                    else
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        Logger.LogError($"Failed to update submission status. Status code: {response.StatusCode}. Error: {errorContent}");
+                        throw new Exception($"Failed to update status: {errorContent}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, $"Error updating submission status for concern {concern.Id}");
+                    await Swal.FireAsync(
+                        "Error",
+                        "Failed to update the submission status. Please try again.",
+                        SweetAlertIcon.Error
+                    );
+                }
+            }
+
+            // Handle read status
+            if (!concern.IsRead)
+            {
+                try
+                {
+                    // First try to get the existing contact form
+                    var existingForm = await ContactService.GetContactFormByIdAsync(concern.Id);
+                    if (existingForm != null)
+                    {
+                        // Update the read status
+                        existingForm.IsRead = true;
+                        await ContactService.UpdateContactFormAsync(existingForm);
+                    }
+                    
+                    // Update UI
+                    concern.IsRead = true;
+                    
+                    // Update notification if exists
+                    var notification = NotificationService.UnreadMessages
+                        .FirstOrDefault(m => m.Content.Contains(concern.Title));
+                    if (notification != null)
+                    {
+                        await NotificationService.MarkAsRead(notification.MessageId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error marking concern as read: {Message}", ex.Message);
+                    concern.IsRead = false;
+                    await Swal.FireAsync("Error", $"Failed to mark concern as read: {ex.Message}", SweetAlertIcon.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in HandleConcernClick");
+            await Swal.FireAsync("Error", "An error occurred while processing your request.", SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task DeleteConcern(BlazorApp1.Shared.Models.ConcernViewModel concern)
+    {
+        try
+        {
+            // Check authorization
+            if (!isSuperAdmin && !user.IsInRole("Admin"))
+            {
+                await Swal.FireAsync("Error", "You do not have permission to delete submissions.", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Confirm deletion
+            var result = await Swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Are you sure?",
+                Text = "This submission will be marked as deleted and moved to archive.",
+                Icon = SweetAlertIcon.Warning,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, delete it",
+                CancelButtonText = "Cancel"
+            });
+
+            if (!result.IsConfirmed) return;
+
+            bool deleteSuccess = false;
+
+            // Handle client submissions
+            if (concern.IsClientSubmission)
+            {
+                Logger.LogInformation($"Deleting client submission {concern.Id}");
+                var updateResult = await SubmissionService.UpdateStatusAsync(concern.Id, SubmissionStatus.Deleted);
+                if (!updateResult)
+                {
+                    Logger.LogWarning("Failed to update submission {Id} status to Deleted", concern.Id);
+                    await Swal.FireAsync("Warning", 
+                        "The submission could not be found or has already been processed.",
+                        SweetAlertIcon.Warning);
+                    return;
+                }
+                deleteSuccess = true;
+            }
+            // Handle non-client submissions (contact forms)
+            else
+            {
+                try
+                {
+                    deleteSuccess = await ContactService.DeleteFormAsync(concern.Id);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error deleting contact form {Id}", concern.Id);
+                    throw;
+                }
+            }
+
+            if (deleteSuccess)
+            {
+                // Remove from current view
+                concerns.RemoveAll(c => c.Id == concern.Id);
+                if (selectedConcernVM?.Id == concern.Id)
+                {
+                    selectedConcernVM = null;
+                }
+
+                await Swal.FireAsync("Success", "The submission has been deleted and moved to archive.", SweetAlertIcon.Success);
+                StateHasChanged();
+            }
+            else
+            {
+                await Swal.FireAsync("Error", "Failed to delete the submission.", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting concern");
+            await Swal.FireAsync("Error", "An error occurred while deleting the submission.", SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task ResolveConcern(BlazorApp1.Shared.Models.ConcernViewModel concern)
+    {
+        if (concern == null) return;
+
+        try
+        {
+            concern.IsResolved = !concern.IsResolved;
+            await ContactService.UpdateContactFormAsync(new ContactForm 
+            { 
+                Id = concern.Id,
+                IsResolved = concern.IsResolved
+            });
+            
+            var status = concern.IsResolved ? "resolved" : "unresolved";
+            await Swal.FireAsync("Success", $"Concern marked as {status}.", SweetAlertIcon.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating concern resolution status");
+            concern.IsResolved = !concern.IsResolved; // Revert the change
+            await Swal.FireAsync("Error", "Failed to update concern status.", SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task PrintConcern(BlazorApp1.Shared.Models.ConcernViewModel concern)
+    {
+        if (concern == null) return;
+
+        try
+        {
+            isPrinting = true;
+            StateHasChanged();
+            
+            // Convert the local ConcernViewModel to the shared model if needed
+            var sharedConcern = new BlazorApp1.Shared.Models.ConcernViewModel
+            {
+                Id = concern.Id,
+                Title = concern.Title,
+                Description = concern.Description,
+                FormType = concern.FormType,
+                PriorityLevel = concern.PriorityLevel,
+                UrgencyLevel = concern.UrgencyLevel,
+                DateSubmitted = concern.DateSubmitted,
+                Status = concern.Status,
+                IsRead = concern.IsRead,
+                UserEmail = concern.UserEmail,
+                Location = concern.Location,
+                Category = concern.Category
+            };
+            
+            await PdfService.GenerateConcernPdfAsync(sharedConcern);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error printing concern");
+            await Swal.FireAsync("Error", "Failed to print concern.", SweetAlertIcon.Error);
+        }
+        finally
+        {
+            isPrinting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < TotalPages)
+        {
+            currentPage++;
+        }
+    }
+
+    private string GetFormTypeClass(FormType? formType)
+    {
+        return formType switch
+        {
+            FormType.Request => "request",
+            FormType.Concern => "concern",
+            FormType.Suggestion => "suggestion",
+            _ => string.Empty
+        };
+    }
+
+    private string GetFormTypeIcon(FormType? formType)
+    {
+        return formType switch
+        {
+            FormType.Request => "fa-file-alt",
+            FormType.Concern => "fa-exclamation-circle",
+            FormType.Suggestion => "fa-lightbulb",
+            _ => "fa-question-circle"
+        };
+    }
+
+    private async Task DeleteAllConcerns()
+    {
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Are you sure?",
+            Text = "This will permanently delete all requests, concerns, and suggestions. This action cannot be undone!",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, delete all",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#dc3545"
+        });
+
+        if (result.IsConfirmed)
+        {
+            try
+            {
+                // Delete from both endpoints
+                await Http.DeleteAsync("api/Contact/clear-all");
+                await Http.DeleteAsync("api/Submissions/clear-all");
+
+                await Swal.FireAsync(
+                    "Deleted!",
+                    "All requests, concerns, and suggestions have been deleted.",
+                    SweetAlertIcon.Success
+                );
+                concerns.Clear();
+                selectedConcernVM = null;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                await Swal.FireAsync(
+                    "Error",
+                    $"An error occurred: {ex.Message}",
+                    SweetAlertIcon.Error
+                );
+            }
+        }
+    }
+
+    private string GetStatusBadgeClass(SubmissionStatus status)
+    {
+        return status switch
+        {
+            SubmissionStatus.Pending => "badge bg-warning text-dark",
+            SubmissionStatus.InProgress => "badge bg-info",
+            SubmissionStatus.Resolved => "badge bg-success",
+            SubmissionStatus.Rejected => "badge bg-danger",
+            SubmissionStatus.Deleted => "badge bg-danger",
+            SubmissionStatus.Archived => "badge bg-secondary",
+            _ => "badge bg-secondary"
+        };
+    }
+
+    private string GetProgressBarClass(SubmissionStatus status)
+    {
+        return status switch
+        {
+            SubmissionStatus.Pending => "progress-bar bg-warning",
+            SubmissionStatus.InProgress => "progress-bar bg-info",
+            SubmissionStatus.Resolved => "progress-bar bg-success",
+            SubmissionStatus.Rejected => "progress-bar bg-danger",
+            SubmissionStatus.Deleted => "progress-bar bg-secondary",
+            _ => "progress-bar bg-secondary"
+        };
+    }
+
+    private string GetProgressWidth(SubmissionStatus status)
+    {
+        return status switch
+        {
+            SubmissionStatus.Pending => "25%",
+            SubmissionStatus.InProgress => "50%",
+            SubmissionStatus.Resolved => "100%",
+            SubmissionStatus.Rejected => "100%",
+            SubmissionStatus.Deleted => "100%",
+            _ => "0%"
+        };
+    }
+
+    private string GetStatusIcon(SubmissionStatus status)
+    {
+        return status switch
+        {
+            SubmissionStatus.Pending => "fa-clock",
+            SubmissionStatus.InProgress => "fa-spinner fa-spin",
+            SubmissionStatus.Resolved => "fa-check",
+            SubmissionStatus.Rejected => "fa-times",
+            _ => "fa-question"
+        };
+    }
+
+    private bool IsTimelineStepActive(SubmissionStatus currentStatus, SubmissionStatus targetStatus)
+    {
+        return (int)currentStatus >= (int)targetStatus;
+    }
+
+    private bool IsTimelineStepActive(SubmissionStatus currentStatus, SubmissionStatus[] targetStatuses)
+    {
+        return targetStatuses.Any(target => (int)currentStatus >= (int)target);
+    }
+
+    private string GetTimelineIconClass(SubmissionStatus currentStatus, SubmissionStatus targetStatus)
+    {
+        if ((int)currentStatus > (int)targetStatus)
+            return "timeline-icon bg-success";
+        if (currentStatus == targetStatus)
+            return "timeline-icon bg-info";
+        return "timeline-icon bg-light";
+    }
+
+    private string GetTimelineIconClass(SubmissionStatus currentStatus, SubmissionStatus[] targetStatuses)
+    {
+        if (targetStatuses.Any(target => (int)currentStatus > (int)target))
+            return "timeline-icon bg-success";
+        if (targetStatuses.Any(target => currentStatus == target))
+            return "timeline-icon bg-info";
+        return "timeline-icon bg-light";
+    }
+
+    private string GetTimelineIconTextClass(SubmissionStatus currentStatus, SubmissionStatus targetStatus)
+    {
+        return currentStatus == targetStatus ? "text-white" : "text-muted";
+    }
+
+    private string GetTimelineIconTextClass(SubmissionStatus currentStatus, SubmissionStatus[] targetStatuses)
+    {
+        return targetStatuses.Contains(currentStatus) ? "text-white" : "text-muted";
+    }
+
+    private async Task ShowDetails(BlazorApp1.Shared.Models.ConcernViewModel concern)
+    {
+        if (concern == null) return;
+        
+        selectedConcernVM = concern;
+        
+        try
+        {
+            // Check if this is a client submission
+            var isClientSubmission = GetUserRole(concern.UserEmail) == "Client";
+            
+            if (isClientSubmission && concern.Status == SubmissionStatus.Pending)
+            {
+                try
+                {
+                    Logger.LogInformation($"Updating status for concern {concern.Id} from {concern.Status} to InProgress");
+
+                    // Send the status update using the correct endpoint format
+                    var response = await Http.PutAsJsonAsync($"api/submissions/{concern.Id}/status", SubmissionStatus.InProgress);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Update the selected concern
+                        selectedConcernVM.Status = SubmissionStatus.InProgress;
+                        
+                        // Update the concern in the list
+                        var concernInList = concerns.FirstOrDefault(c => c.Id == concern.Id);
+                        if (concernInList != null)
+                        {
+                            concernInList.Status = SubmissionStatus.InProgress;
+                        }
+                        
+                        // Force UI refresh
+                        StateHasChanged();
+                    }
+                    else
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        Logger.LogError($"Failed to update submission status. Status code: {response.StatusCode}. Error: {errorContent}");
+                        throw new Exception($"Failed to update status: {errorContent}");
+                    }
+
+                    // Update the contact form if it exists
+                    try
+                    {
+                        var existingForm = await ContactService.GetContactFormByIdAsync(concern.Id);
+                        if (existingForm != null)
+                        {
+                            existingForm.IsRead = true;
+                            await ContactService.UpdateContactFormAsync(existingForm);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, $"Error updating contact form for concern {concern.Id}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, $"Exception updating submission status for concern {concern.Id}");
+                    await Swal.FireAsync(new SweetAlertOptions
+                    {
+                        Title = "Error",
+                        Text = "An error occurred while updating the status. Please try again.",
+                        Icon = SweetAlertIcon.Error
+                    });
+                }
+            }
+
+            // Update notifications
+            if (!concern.IsRead)
+            {
+                try
+                {
+                    var notification = NotificationService.UnreadMessages
+                        .FirstOrDefault(m => m.Content.Contains(concern.Title));
+                    if (notification != null)
+                    {
+                        await NotificationService.MarkAsRead(notification.MessageId);
+                    }
+                    concern.IsRead = true;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error updating notification status");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in ShowDetails");
+            await Swal.FireAsync("Error", "An error occurred while processing your request.", SweetAlertIcon.Error);
+        }
+    }
+
+    private void CloseDetails()
+    {
+        selectedConcernVM = null;
+    }
+
+    private async Task UpdateStatus(SubmissionStatus newStatus)
+    {
+        if (selectedConcernVM == null) return;
+
+        try
+        {
+            bool statusUpdateSuccess = false;
+
+            // Handle client submissions first
+            if (selectedConcernVM.IsClientSubmission)
+            {
+                Logger.LogInformation($"Updating client submission {selectedConcernVM.Id} status to {newStatus}");
+                
+                // Update the status using SubmissionService
+                statusUpdateSuccess = await SubmissionService.UpdateStatusAsync(selectedConcernVM.Id, newStatus);
+                if (!statusUpdateSuccess)
+                {
+                    throw new Exception("Failed to update submission status");
+                }
+
+                // Remove from current view if resolved or rejected (will be archived by server)
+                if (newStatus == SubmissionStatus.Resolved || newStatus == SubmissionStatus.Rejected)
+                {
+                    Logger.LogInformation($"Removing submission {selectedConcernVM.Id} from view (archived)");
+                    concerns.RemoveAll(c => c.Id == selectedConcernVM.Id);
+                    selectedConcernVM = null;
+                }
+                else
+                {
+                    // Update the selected concern
+                    selectedConcernVM.Status = newStatus;
+                    selectedConcernVM.IsResolved = newStatus == SubmissionStatus.Resolved;
+                    
+                    // Update the concern in the list
+                    var concern = concerns.FirstOrDefault(c => c.Id == selectedConcernVM.Id);
+                    if (concern != null)
+                    {
+                        concern.Status = newStatus;
+                        concern.IsResolved = newStatus == SubmissionStatus.Resolved;
+                    }
+                }
+            }
+            // Handle non-client submissions (contact forms)
+            else
+            {
+                try
+                {
+                    var existingForm = await ContactService.GetContactFormByIdAsync(selectedConcernVM.Id);
+                    if (existingForm != null)
+                    {
+                        Logger.LogInformation($"Updating contact form {existingForm.Id} status to {newStatus}");
+                        
+                        // Update contact form status
+                        existingForm.Status = newStatus;
+                        existingForm.IsResolved = newStatus == SubmissionStatus.Resolved;
+                        await ContactService.UpdateContactFormAsync(existingForm);
+
+                        // Remove from current view if resolved or rejected (will be archived by server)
+                        if (newStatus == SubmissionStatus.Resolved || newStatus == SubmissionStatus.Rejected)
+                        {
+                            Logger.LogInformation($"Removing contact form {existingForm.Id} from view (archived)");
+                            concerns.RemoveAll(c => c.Id == existingForm.Id);
+                            selectedConcernVM = null;
+                        }
+                        else
+                        {
+                            // Update the selected concern
+                            selectedConcernVM.Status = newStatus;
+                            selectedConcernVM.IsResolved = newStatus == SubmissionStatus.Resolved;
+                            
+                            // Update the concern in the list
+                            var concern = concerns.FirstOrDefault(c => c.Id == selectedConcernVM.Id);
+                            if (concern != null)
+                            {
+                                concern.Status = newStatus;
+                                concern.IsResolved = newStatus == SubmissionStatus.Resolved;
+                            }
+                        }
+                        statusUpdateSuccess = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error updating contact form status");
+                    throw;
+                }
+            }
+
+            if (statusUpdateSuccess)
+            {
+                await Swal.FireAsync("Success", $"Status updated to {newStatus}.", SweetAlertIcon.Success);
+            }
+
+            // Reload the concerns list to reflect changes
+            await LoadSubmissions();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating status");
+            await Swal.FireAsync("Error", "Failed to update status. Please try again.", SweetAlertIcon.Error);
+        }
+    }
+
+    private string GetPriorityLevelString(BlazorApp1.Shared.Models.ConcernViewModel concern)
+    {
+        return concern.PriorityLevel?.ToString() ?? "Low";
+    }
+
+    private string GetUrgencyLevelString(BlazorApp1.Shared.Models.ConcernViewModel concern)
+    {
+        return concern.UrgencyLevel?.ToString() ?? "Low";
+    }
+
+    private string GetStatusDisplay(SubmissionStatus status) => status switch
+    {
+        SubmissionStatus.Pending => "Pending",
+        SubmissionStatus.InProgress => "In Progress",
+        SubmissionStatus.Resolved => "Resolved",
+        SubmissionStatus.Rejected => "Deleted",
+        SubmissionStatus.Deleted => "Deleted",
+        SubmissionStatus.Archived => "Archived",
+        _ => status.ToString()
+    };
+
+    private async Task<bool> VerifyApiEndpoint(int concernId)
+    {
+        try
+        {
+            // Try to get the current status first
+            var response = await Http.GetAsync($"api/submissions/{concernId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogError($"API endpoint verification failed. Status code: {response.StatusCode}");
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error verifying API endpoint");
+            return false;
+        }
+    }
+
+    private async Task OnPriorityChanged(ChangeEventArgs e)
+    {
+        selectedPriority = e.Value?.ToString() ?? "";
+        currentPage = 1; // Reset to first page when filter changes
+        StateHasChanged();
+    }
+
+    private async Task OnDateSortChanged(ChangeEventArgs e)
+    {
+        dateSort = e.Value?.ToString() ?? "latest";
+        StateHasChanged();
+    }
+
+    private async Task OnFormTypeChanged(ChangeEventArgs e)
+    {
+        selectedFormType = e.Value?.ToString() ?? "";
+        currentPage = 1; // Reset to first page when filter changes
+        StateHasChanged();
+    }
+
+    public class UserInfo
+    {
+        public int Id { get; set; }
+        public string Email { get; set; } = string.Empty;
+    }
+}

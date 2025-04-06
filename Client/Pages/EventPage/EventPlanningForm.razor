@@ -1,0 +1,402 @@
+@page "/admin/event-planning/create"
+@page "/admin/event-planning/edit/{Id:int}"
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Client.Services
+@using CurrieTechnologies.Razor.SweetAlert2
+@inject IEventService EventService
+@inject NavigationManager NavigationManager
+@inject SweetAlertService Swal
+
+<div class="form-container">
+    <div class="form-header">
+        <h1 class="page-title">@(Id == null ? "Create New Event" : "Edit Event")</h1>
+        <p class="subtitle">@(Id == null ? "Add a new event to the community calendar" : "Update the event details")</p>
+    </div>
+
+    <div class="form-card">
+        <EditForm Model="@eventDto" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="title">Event Title</label>
+                    <input id="title" class="form-control" @bind="eventDto.Title" placeholder="Enter event title" />
+                    <ValidationMessage For="@(() => eventDto.Title)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="eventType">Event Type</label>
+                    <select id="eventType" class="form-control" @bind="eventDto.EventType">
+                        <option value="">Select event type</option>
+                        <option value="Community">Community</option>
+                        <option value="Social">Social</option>
+                        <option value="Meeting">Meeting</option>
+                        <option value="Maintenance">Maintenance</option>
+                    </select>
+                    <ValidationMessage For="@(() => eventDto.EventType)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" class="form-control" @bind="eventDto.Description" rows="4" 
+                              placeholder="Enter event description"></textarea>
+                    <ValidationMessage For="@(() => eventDto.Description)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <input id="location" class="form-control" @bind="eventDto.Location" placeholder="Enter event location" />
+                    <ValidationMessage For="@(() => eventDto.Location)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="eventDate">Event Date</label>
+                    <input id="eventDate" type="date" class="form-control" @bind="eventDto.EventDate" min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    <ValidationMessage For="@(() => eventDto.EventDate)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="expiryDate">Expiry Date</label>
+                    <input id="expiryDate" type="date" class="form-control" @bind="eventDto.ExpiryDate" min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    <ValidationMessage For="@(() => eventDto.ExpiryDate)" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="eventImage">Event Image</label>
+                    <InputFile OnChange="OnFileSelected" class="form-control" accept="image/*" />
+                    @if (selectedImage != null)
+                    {
+                        <div class="selected-file mt-2">
+                            Selected: @selectedImage.Name (@(Math.Round((double)selectedImage.Size / 1024, 2)) KB)
+                        </div>
+                    }
+                </div>
+
+                @if (imagePreviewUrl != null)
+                {
+                    <div class="image-preview full-width">
+                        <img src="@imagePreviewUrl" alt="Event preview" />
+                    </div>
+                }
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" @onclick="GoBack">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="bi bi-save"></i> @(Id == null ? "Create Event" : "Update Event")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+<style>
+    .form-container {
+        max-width: 1000px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        animation: slideInDown 0.5s ease-out;
+    }
+
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #000;
+        margin: 0;
+    }
+
+    .subtitle {
+        color: #666;
+        margin: 0.5rem 0 0 0;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        animation: slideInUp 0.5s ease-out;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: rgb(255, 200, 44);
+        box-shadow: 0 0 0 3px rgba(255, 200, 44, 0.2);
+    }
+
+    .form-control::placeholder {
+        color: #999;
+    }
+
+    select.form-control {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23333' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        padding-right: 2.5rem;
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    .image-preview {
+        margin-top: 1rem;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .image-preview img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .btn-primary, .btn-secondary {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background-color: rgb(255, 200, 44);
+        color: #000;
+    }
+
+    .btn-secondary {
+        background-color: #000;
+        color: white;
+    }
+
+    .btn-primary:hover, .btn-secondary:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-primary:hover {
+        box-shadow: 0 4px 12px rgba(255, 200, 44, 0.3);
+    }
+
+    .btn-secondary:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @@keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .page-title {
+            font-size: 2rem;
+        }
+
+        .form-card {
+            padding: 1.5rem;
+        }
+
+        .form-actions {
+            flex-direction: column-reverse;
+        }
+
+        .btn-primary, .btn-secondary {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private CreateEventDto eventDto = new()
+    {
+        EventDate = DateTime.Today,
+        ExpiryDate = DateTime.Today.AddMonths(1)
+    };
+    private IBrowserFile selectedImage;
+    private string imagePreviewUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            try
+            {
+                var existingEvent = await EventService.GetEventByIdAsync(Id.Value);
+                if (existingEvent != null)
+                {
+                    eventDto = new CreateEventDto
+                    {
+                        Title = existingEvent.Title,
+                        Description = existingEvent.Description,
+                        EventType = existingEvent.EventType,
+                        Location = existingEvent.Location,
+                        EventDate = existingEvent.EventDate,
+                        ExpiryDate = existingEvent.ExpiryDate
+                    };
+                    imagePreviewUrl = existingEvent.ImageUrl;
+                }
+            }
+            catch (Exception ex)
+            {
+                await Swal.FireAsync("Error", "Failed to load event: " + ex.Message, SweetAlertIcon.Error);
+                NavigationManager.NavigateTo("admin/event-planning");
+            }
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedImage = e.File;
+        if (selectedImage != null)
+        {
+            var buffer = new byte[selectedImage.Size];
+            await selectedImage.OpenReadStream().ReadAsync(buffer);
+            eventDto.ImageContent = buffer;
+            eventDto.ImageFileName = selectedImage.Name;
+            eventDto.ImageContentType = selectedImage.ContentType;
+
+            // Create a temporary URL for preview
+            var format = "image/jpeg";
+            var imageFile = await e.File.RequestImageFileAsync(format, 800, 600);
+            var buffer2 = new byte[imageFile.Size];
+            await imageFile.OpenReadStream().ReadAsync(buffer2);
+            imagePreviewUrl = $"data:{format};base64,{Convert.ToBase64String(buffer2)}";
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            if (Id.HasValue)
+            {
+                var updateDto = new UpdateEventDto
+                {
+                    Id = Id.Value,
+                    Title = eventDto.Title,
+                    Description = eventDto.Description,
+                    EventType = eventDto.EventType,
+                    Location = eventDto.Location,
+                    EventDate = eventDto.EventDate,
+                    ExpiryDate = eventDto.ExpiryDate,
+                    ImageContent = eventDto.ImageContent,
+                    ImageFileName = eventDto.ImageFileName,
+                    ImageContentType = eventDto.ImageContentType
+                };
+
+                await EventService.UpdateEventAsync(updateDto);
+                await Swal.FireAsync("Success", "Event updated successfully!", SweetAlertIcon.Success);
+            }
+            else
+            {
+                await EventService.CreateEventAsync(eventDto);
+                await Swal.FireAsync("Success", "Event created successfully!", SweetAlertIcon.Success);
+            }
+
+            // Navigate to the event carousel view instead of the event planning page
+            NavigationManager.NavigateTo("/?CarouselType=event");
+        }
+        catch (Exception ex)
+        {
+            await Swal.FireAsync("Error", ex.Message, SweetAlertIcon.Error);
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("admin/event-planning");
+    }
+} 

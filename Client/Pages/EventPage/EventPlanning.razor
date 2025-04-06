@@ -1,0 +1,554 @@
+@page "/admin/event-planning"
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Client.Services
+@using CurrieTechnologies.Razor.SweetAlert2
+@inject IEventService EventService
+@inject NavigationManager NavigationManager
+@inject SweetAlertService Swal
+
+<PageTitle>Event Planning - Management System</PageTitle>
+
+<div class="event-planning-container">
+    <div class="header-section">
+        <div class="header-content">
+            <h1 class="page-title">Event Planning</h1>
+            <p class="subtitle">Manage and organize community events</p>
+        </div>
+        <button class="create-button" @onclick="@(() => NavigationManager.NavigateTo("admin/event-planning/create"))">
+            <i class="fas fa-calendar-plus"></i>
+            <span>Create New Event</span>
+        </button>
+    </div>
+
+    <div class="events-grid">
+        @if (events == null)
+        {
+            <div class="loading-container">
+                <div class="spinner">
+                    <div class="double-bounce1"></div>
+                    <div class="double-bounce2"></div>
+                </div>
+                <p>Loading events...</p>
+            </div>
+        }
+        else if (!events.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-calendar-plus fa-bounce"></i>
+                </div>
+                <h3>No Events Found</h3>
+                <p>Start by creating your first event!</p>
+                <button class="create-button-empty" @onclick="@(() => NavigationManager.NavigateTo("admin/event-planning/create"))">
+                    <i class="fas fa-plus-circle"></i>
+                    Create New Event
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="events-container">
+                @foreach (var eventItem in events)
+                {
+                    <div class="event-card">
+                        <div class="event-image">
+                            @if (!string.IsNullOrEmpty(eventItem.ImageUrl))
+                            {
+                                <img src="@eventItem.ImageUrl" alt="@eventItem.Title">
+                            }
+                            else
+                            {
+                                <div class="placeholder-image">
+                                    <i class="fas fa-calendar-day"></i>
+                                </div>
+                            }
+                            <div class="event-type">@eventItem.EventType</div>
+                        </div>
+                        <div class="event-content">
+                            <h3 class="event-title">@eventItem.Title</h3>
+                            <p class="event-description">@eventItem.Description</p>
+                            <div class="event-status">
+                                <span class="status-badge @GetStatusBadgeClass(eventItem.Status)">
+                                    <i class="fas fa-circle"></i>
+                                    @eventItem.Status
+                                </span>
+                            </div>
+                            <div class="event-details">
+                                <div class="detail-item">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>@eventItem.EventDate.ToShortDateString()</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>@eventItem.Location</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Expires: @eventItem.ExpiryDate.ToShortDateString()</span>
+                                </div>
+                            </div>
+                            <div class="event-actions">
+                                <button class="action-button edit" @onclick="@(() => NavigationManager.NavigateTo($"/admin/event-planning/edit/{eventItem.Id}"))">
+                                    <i class="fas fa-edit"></i>
+                                    <span>Edit</span>
+                                </button>
+                                <button class="action-button delete" @onclick="@(() => ConfirmDelete(eventItem))">
+                                    <i class="fas fa-trash-alt"></i>
+                                    <span>Delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .event-planning-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding: 1rem 0;
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .header-content {
+        animation: slideInLeft 0.5s ease-out;
+    }
+
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin: 0;
+    }
+
+    .subtitle {
+        color: #718096;
+        margin: 0.5rem 0 0 0;
+        font-size: 1.1rem;
+    }
+
+    .create-button {
+        background-color: rgb(255, 200, 44);
+        color: #2d3748;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: slideInRight 0.5s ease-out;
+    }
+
+    .create-button i {
+        font-size: 1.2rem;
+        transition: transform 0.3s ease;
+    }
+
+    .create-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(255, 200, 44, 0.3);
+    }
+
+    .create-button:hover i {
+        transform: rotate(90deg);
+    }
+
+    .events-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 2rem;
+        padding: 1rem 0;
+    }
+
+    .event-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    .event-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .event-image {
+        position: relative;
+        height: 200px;
+        overflow: hidden;
+    }
+
+    .event-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+
+    .event-card:hover .event-image img {
+        transform: scale(1.1);
+    }
+
+    .placeholder-image {
+        width: 100%;
+        height: 100%;
+        background: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .placeholder-image i {
+        font-size: 3rem;
+        color: #dee2e6;
+    }
+
+    .event-type {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgb(255, 200, 44);
+        color: #000;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .event-content {
+        padding: 1.5rem;
+    }
+
+    .event-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #000;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .event-description {
+        color: #666;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        line-height: 1.5;
+    }
+
+    .event-status {
+        margin-bottom: 1rem;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .status-badge i {
+        font-size: 0.625rem;
+    }
+
+    .bg-success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .bg-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .bg-info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .bg-warning {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .event-details {
+        margin: 1rem 0;
+    }
+
+    .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .event-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .action-button {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .action-button.edit {
+        background-color: rgb(255, 200, 44);
+        color: #000;
+    }
+
+    .action-button.delete {
+        background-color: #000;
+        color: white;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        position: relative;
+        margin: 0 auto;
+    }
+
+    .double-bounce1, .double-bounce2 {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background-color: rgb(255, 200, 44);
+        opacity: 0.6;
+        position: absolute;
+        top: 0;
+        left: 0;
+        animation: bounce 2.0s infinite ease-in-out;
+    }
+
+    .double-bounce2 {
+        animation-delay: -1.0s;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        animation: fadeInUp 0.5s ease-out;
+    }
+
+    .empty-state-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 2rem;
+        background: rgba(255, 200, 44, 0.1);
+        border-radius: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .empty-state-icon i {
+        font-size: 3rem;
+        color: rgb(255, 200, 44);
+    }
+
+    .empty-state h3 {
+        color: #2d3748;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-state p {
+        color: #718096;
+        margin-bottom: 2rem;
+        font-size: 1.1rem;
+    }
+
+    .create-button-empty {
+        background-color: rgb(255, 200, 44);
+        color: #2d3748;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .create-button-empty:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(255, 200, 44, 0.3);
+    }
+
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes bounce {
+        0%, 100% { 
+            transform: scale(0.0);
+        } 
+        50% { 
+            transform: scale(1.0);
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .event-planning-container {
+            padding: 1rem;
+        }
+
+        .header-section {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .page-title {
+            font-size: 2rem;
+        }
+
+        .events-container {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@code {
+    private List<EventListDto>? events;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEvents();
+    }
+
+    private async Task LoadEvents()
+    {
+        try
+        {
+            events = await EventService.GetAllEventsAsync();
+        }
+        catch (Exception ex)
+        {
+            await Swal.FireAsync("Error", "Failed to load events: " + ex.Message, SweetAlertIcon.Error);
+            events = new List<EventListDto>();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Cancelled" => "bg-danger",
+        "Completed" => "bg-info",
+        "Expired" => "bg-warning",
+        _ => "bg-secondary"
+    };
+
+    private async Task ConfirmDelete(EventListDto eventItem)
+    {
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Are you sure?",
+            Text = $"Do you want to delete the event '{eventItem.Title}'? This cannot be undone.",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, delete it!",
+            CancelButtonText = "No, keep it"
+        });
+
+        if (result.IsConfirmed)
+        {
+            try
+            {
+                var success = await EventService.DeleteEventAsync(eventItem.Id);
+                if (success)
+                {
+                    await Swal.FireAsync("Deleted!", "The event has been deleted.", SweetAlertIcon.Success);
+                    await LoadEvents();
+                }
+                else
+                {
+                    await Swal.FireAsync("Error", "Failed to delete the event.", SweetAlertIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                await Swal.FireAsync("Error", "Failed to delete the event: " + ex.Message, SweetAlertIcon.Error);
+            }
+        }
+    }
+} 

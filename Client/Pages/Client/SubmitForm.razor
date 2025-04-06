@@ -1,0 +1,765 @@
+@page "/client/submit/{FormType}"
+@using System.ComponentModel.DataAnnotations
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Shared.Enums
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Logging
+@using Microsoft.AspNetCore.Components.Authorization
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Blazored.LocalStorage
+@using BlazorApp1.Client.Services
+@inject NavigationManager NavigationManager
+@inject ISubmissionService SubmissionService
+@inject ILogger<SubmitForm> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject SweetAlertService Swal
+@inject ILocalStorageService LocalStorage
+
+<div class="submit-form-container">
+    <div class="form-header animate-fade-down">
+        <div class="form-icon-wrapper">
+            <div class="form-icon @GetIconColorClass()">
+                @switch (FormType?.ToLower())
+                {
+                    case "concern":
+                        <i class="fas fa-exclamation-circle"></i>
+                        break;
+                    case "request":
+                        <i class="fas fa-clipboard-list"></i>
+                        break;
+                    case "suggestion":
+                        <i class="fas fa-lightbulb"></i>
+                        break;
+                    default:
+                        <i class="fas fa-file-alt"></i>
+                        break;
+                }
+            </div>
+        </div>
+        <h1>@GetFormTitle()</h1>
+        <p class="subtitle">@GetFormDescription()</p>
+    </div>
+
+    <div class="form-card animate-slide-up">
+        <EditForm Model="@model" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+            
+            <div class="validation-summary animate-shake">
+                <ValidationSummary />
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width animate-fade-in" style="--delay: 0.1s">
+                    <div class="floating-input">
+                        <InputText @bind-Value="model.Title" class="form-control" id="titleInput" />
+                        <label for="titleInput">Title</label>
+                        <div class="input-focus-border"></div>
+                    </div>
+                    <ValidationMessage For="() => model.Title" />
+                </div>
+
+                <div class="form-group full-width animate-fade-in" style="--delay: 0.2s">
+                    <div class="floating-input">
+                        <InputText @bind-Value="model.Subject" class="form-control" id="subjectInput" />
+                        <label for="subjectInput">Subject</label>
+                        <div class="input-focus-border"></div>
+                    </div>
+                    <ValidationMessage For="() => model.Subject" />
+                </div>
+
+                @if (FormType?.ToLower() == "concern")
+                {
+                    <div class="form-group animate-fade-in" style="--delay: 0.3s">
+                        <div class="floating-input">
+                            <InputSelect @bind-Value="model.Priority" class="form-control" id="prioritySelect">
+                                <option value="">Select Priority</option>
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Emergency">Emergency</option>
+                            </InputSelect>
+                            <label for="prioritySelect">Priority Level</label>
+                            <div class="input-focus-border"></div>
+                        </div>
+                        <ValidationMessage For="() => model.Priority" />
+                    </div>
+
+                    <div class="form-group animate-fade-in" style="--delay: 0.4s">
+                        <div class="floating-input">
+                            <InputSelect @bind-Value="model.Category" class="form-control" id="categorySelect">
+                                <option value="">Select a category</option>
+                                <option value="Noise Complaint">Noise Complaint</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Security">Security</option>
+                                <option value="Neighbor Issue">Neighbor Issue</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                            <label for="categorySelect">Category</label>
+                            <div class="input-focus-border"></div>
+                        </div>
+                        <ValidationMessage For="() => model.Category" />
+                    </div>
+
+                    <div class="form-group animate-fade-in" style="--delay: 0.5s">
+                        <div class="floating-input">
+                            <InputText @bind-Value="model.Location" class="form-control" id="locationInput" />
+                            <label for="locationInput">Location</label>
+                            <div class="input-focus-border"></div>
+                        </div>
+                        <ValidationMessage For="() => model.Location" />
+                    </div>
+                }
+
+                @if (FormType?.ToLower() == "request")
+                {
+                    <div class="form-group animate-fade-in" style="--delay: 0.3s">
+                        <div class="floating-input">
+                            <InputSelect @bind-Value="model.Category" class="form-control" id="requestTypeSelect">
+                                <option value="">Select request type</option>
+                                <option value="Maintenance Request">Maintenance Request</option>
+                                <option value="Amenity Access">Amenity Access</option>
+                                <option value="Document Request">Document Request</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                            <label for="requestTypeSelect">Request Type</label>
+                            <div class="input-focus-border"></div>
+                        </div>
+                        <ValidationMessage For="() => model.Category" />
+                    </div>
+
+                    <div class="form-group animate-fade-in" style="--delay: 0.4s">
+                        <div class="floating-input">
+                            <InputSelect @bind-Value="model.Priority" class="form-control" id="urgencySelect">
+                                <option value="">Select urgency</option>
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Emergency">Emergency</option>
+                            </InputSelect>
+                            <label for="urgencySelect">Urgency Level</label>
+                            <div class="input-focus-border"></div>
+                        </div>
+                        <ValidationMessage For="() => model.Priority" />
+                    </div>
+
+                    <div class="form-group animate-fade-in" style="--delay: 0.5s">
+                        <div class="floating-input">
+                            <InputDate @bind-Value="model.PreferredDate" class="form-control" id="dateInput" min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" />
+                            <label for="dateInput">Preferred Date</label>
+                            <div class="input-focus-border"></div>
+                        </div>
+                        <ValidationMessage For="() => model.PreferredDate" />
+                        <small class="text-muted">Please select a future date for your request.</small>
+                    </div>
+                }
+
+                @if (FormType?.ToLower() == "suggestion")
+                {
+                    <div class="form-group full-width animate-fade-in" style="--delay: 0.3s">
+                        <div class="floating-input">
+                            <InputSelect @bind-Value="model.Category" class="form-control" id="suggestionCategorySelect">
+                                <option value="">Select a category</option>
+                                <option value="Facility Improvement">Facility Improvement</option>
+                                <option value="Service Enhancement">Service Enhancement</option>
+                                <option value="Community Event">Community Event</option>
+                                <option value="Safety">Safety</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                            <label for="suggestionCategorySelect">Category</label>
+                            <div class="input-focus-border"></div>
+                        </div>
+                        <ValidationMessage For="() => model.Category" />
+                    </div>
+                }
+
+                <div class="form-group full-width animate-fade-in" style="--delay: 0.6s">
+                    <div class="floating-input">
+                        <InputTextArea @bind-Value="model.Description" class="form-control description-input" id="descriptionInput" />
+                        <label for="descriptionInput">Description</label>
+                        <div class="input-focus-border"></div>
+                    </div>
+                    <ValidationMessage For="() => model.Description" />
+                </div>
+            </div>
+
+            <div class="form-actions animate-fade-in" style="--delay: 0.7s">
+                <button type="submit" class="submit-button @GetButtonColorClass()" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <div class="button-content">
+                            <div class="spinner"></div>
+                            <span>Submitting...</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="button-content">
+                            <i class="@GetSubmitIcon()"></i>
+                            <span>Submit @FormType</span>
+                        </div>
+                    }
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+<style>
+    /* Color Variables */
+    :root {
+        --primary-color: #FFD700; /* Golden yellow */
+        --primary-dark: #B8860B; /* Darker yellow for hover states */
+        --text-color: #000000; /* Black */
+        --text-light: #333333; /* Lighter black for secondary text */
+        --background-color: #FFFFFF; /* White */
+        --border-color: #E0E0E0; /* Light gray for borders */
+        --hover-color: rgba(255, 215, 0, 0.1); /* Light yellow for hover effects */
+        
+        /* Form type specific colors */
+        --concern-color: #FFD700;
+        --request-color: #FFD700;
+        --suggestion-color: #FFD700;
+    }
+
+    /* Container Styles */
+    .submit-form-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+        color: var(--text-color);
+    }
+
+    /* Form Header Styles */
+    .form-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .form-icon-wrapper {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        font-size: 2rem;
+        color: white;
+        position: relative;
+        transition: transform 0.3s ease;
+        background: var(--primary-color) !important;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+    }
+
+    .form-icon::after {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: var(--primary-color);
+        filter: blur(8px);
+        opacity: 0.4;
+        z-index: -1;
+    }
+
+    .form-icon:hover {
+        transform: scale(1.05);
+    }
+
+    .form-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .form-header .subtitle {
+        font-size: 1.1rem;
+        color: var(--text-light);
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    /* Form Card Styles */
+    .form-card {
+        background: var(--background-color);
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 
+            0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        position: relative;
+        overflow: hidden;
+        border: 2px solid var(--border-color);
+    }
+
+    .form-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: var(--primary-color);
+    }
+
+    /* Form Grid */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    /* Form Controls */
+    .floating-input {
+        position: relative;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 1rem;
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: var(--background-color);
+        color: var(--text-color);
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.1);
+    }
+
+    .floating-input label {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        padding: 0 0.5rem;
+        color: var(--text-light);
+        transition: all 0.3s ease;
+        pointer-events: none;
+    }
+
+    .form-control:focus ~ label,
+    .form-control:not(:placeholder-shown) ~ label {
+        top: 0;
+        transform: translateY(-50%) scale(0.85);
+        background: var(--background-color);
+        color: var(--primary-dark);
+    }
+
+    .input-focus-border {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 0;
+        height: 2px;
+        background: var(--primary-color);
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus ~ .input-focus-border {
+        width: 100%;
+        left: 0;
+    }
+
+    .description-input {
+        min-height: 150px;
+        resize: vertical;
+    }
+
+    /* Submit Button */
+    .form-actions {
+        text-align: center;
+    }
+
+    .submit-button {
+        padding: 1rem 3rem;
+        border: none;
+        border-radius: 50px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: var(--text-color);
+        background: var(--primary-color);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .submit-button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.2));
+        transform: translateX(-100%) rotate(45deg);
+        transition: transform 0.6s ease;
+    }
+
+    .submit-button:hover::before {
+        transform: translateX(100%) rotate(45deg);
+    }
+
+    .submit-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 7px 14px rgba(255, 215, 0, 0.3);
+    }
+
+    .button-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+
+    .spinner {
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0, 0, 0, 0.3);
+        border-radius: 50%;
+        border-top-color: var(--text-color);
+        animation: spin 1s linear infinite;
+    }
+
+    /* Animations */
+    .animate-fade-down {
+        animation: fadeDown 0.6s ease-out forwards;
+    }
+
+    .animate-slide-up {
+        animation: slideUp 0.6s ease-out forwards;
+    }
+
+    .animate-fade-in {
+        opacity: 0;
+        animation: fadeIn 0.5s ease-out forwards;
+        animation-delay: var(--delay, 0s);
+    }
+
+    .animate-shake {
+        animation: shake 0.5s ease-in-out;
+    }
+
+    @@keyframes fadeDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @@keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Responsive Design */
+    @@media (max-width: 768px) {
+        .submit-form-container {
+            margin: 1rem;
+            padding: 0;
+        }
+
+        .form-header h1 {
+            font-size: 2rem;
+        }
+
+        .form-card {
+            padding: 1.5rem;
+            border-radius: 15px;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .submit-button {
+            width: 100%;
+        }
+    }
+
+    /* Validation Styles */
+    .validation-message {
+        color: #FF0000;
+    }
+
+    .validation-summary {
+        color: #FF0000;
+        background: rgba(255, 0, 0, 0.1);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Override Bootstrap Colors */
+    .bg-danger, .bg-primary, .bg-success {
+        background: var(--primary-color) !important;
+        color: var(--text-color) !important;
+    }
+
+    /* Form Icons Override */
+    .concern-icon, .request-icon, .suggestion-icon {
+        background: var(--primary-color) !important;
+    }
+
+    /* Spinner */
+    .spinner {
+        border: 3px solid rgba(0, 0, 0, 0.3);
+        border-top-color: var(--text-color);
+    }
+
+    /* Hover Effects */
+    .form-control:hover {
+        border-color: var(--primary-color);
+        background: var(--hover-color);
+    }
+
+    .form-card:hover {
+        box-shadow: 0 10px 20px rgba(255, 215, 0, 0.1);
+    }
+
+    /* Small text */
+    .text-muted {
+        color: var(--text-light) !important;
+    }
+
+    /* Select Options */
+    .form-control option {
+        background: var(--background-color);
+        color: var(--text-color);
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string? FormType { get; set; }
+
+    private SubmissionDto model = new();
+    private bool isSubmitting = false;
+
+    protected override void OnInitialized()
+    {
+        // Initialize model with default values
+        model = new SubmissionDto
+        {
+            Type = FormType?.ToLower() ?? "concern",
+            Status = SubmissionStatus.Pending,
+            SubmittedDate = DateTime.UtcNow,
+            LastUpdated = DateTime.UtcNow,
+            PreferredDate = DateTime.Today.AddDays(1),
+            IsClientSubmission = true,
+            Title = string.Empty,
+            Subject = string.Empty,
+            Priority = FormType?.ToLower() == "suggestion" ? string.Empty : "Medium" // Default priority except for suggestions
+        };
+    }
+
+    private string GetFormTitle() => FormType?.ToLower() switch
+    {
+        "concern" => "Report Your Concern",
+        "request" => "Submit Your Request",
+        "suggestion" => "Submit Your Suggestion",
+        _ => "Submit Form"
+    };
+
+    private string GetFormDescription() => FormType?.ToLower() switch
+    {
+        "concern" => "We take your concerns seriously. Please provide detailed information about your concern.",
+        "request" => "Please provide details about your request.",
+        "suggestion" => "Help us improve our community by sharing your ideas and suggestions",
+        _ => "Please fill out the form below"
+    };
+
+    private string GetIconColorClass() => FormType?.ToLower() switch
+    {
+        "concern" => "concern-icon",
+        "request" => "request-icon",
+        "suggestion" => "suggestion-icon",
+        _ => "concern-icon"
+    };
+
+    private string GetButtonColorClass() => FormType?.ToLower() switch
+    {
+        "concern" => "bg-danger",
+        "request" => "bg-primary",
+        "suggestion" => "bg-success",
+        _ => "bg-primary"
+    };
+
+    private string GetSubmitIcon() => FormType?.ToLower() switch
+    {
+        "concern" => "fas fa-exclamation-circle",
+        "request" => "fas fa-paper-plane",
+        "suggestion" => "fas fa-lightbulb",
+        _ => "fas fa-paper-plane"
+    };
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            // Different validation based on form type
+            if (FormType?.ToLower() != "suggestion")
+            {
+                // For concerns and requests, all fields including Priority are required
+                if (string.IsNullOrEmpty(model.Title) || string.IsNullOrEmpty(model.Subject) || 
+                    string.IsNullOrEmpty(model.Description) || string.IsNullOrEmpty(model.Priority))
+                {
+                    await Swal.FireAsync(
+                        "Validation Error",
+                        "Please fill in all required fields (Title, Subject, Description, and Priority).",
+                        SweetAlertIcon.Warning
+                    );
+                    return;
+                }
+            }
+            else
+            {
+                // For suggestions, Priority is optional
+                if (string.IsNullOrEmpty(model.Title) || string.IsNullOrEmpty(model.Subject) || 
+                    string.IsNullOrEmpty(model.Description))
+                {
+                    await Swal.FireAsync(
+                        "Validation Error",
+                        "Please fill in all required fields (Title, Subject, and Description).",
+                        SweetAlertIcon.Warning
+                    );
+                    return;
+                }
+            }
+
+            isSubmitting = true;
+
+            // Get the current user
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated != true)
+            {
+                await Swal.FireAsync(
+                    "Error",
+                    "You must be logged in to submit a form.",
+                    SweetAlertIcon.Error
+                );
+                return;
+            }
+
+            // Get user ID from claims
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                await Swal.FireAsync(
+                    "Error",
+                    "User ID not found. Please try logging in again.",
+                    SweetAlertIcon.Error
+                );
+                return;
+            }
+
+            // Set additional properties
+            model.UserId = int.Parse(userId);
+            model.UserEmail = user.FindFirst(ClaimTypes.Email)?.Value ?? "";
+            model.UserName = user.FindFirst(ClaimTypes.Name)?.Value ?? "";
+            model.SubmittedDate = DateTime.UtcNow;
+            model.LastUpdated = DateTime.UtcNow;
+            model.Status = SubmissionStatus.Pending;
+            model.Type = FormType?.ToLower() ?? "concern";
+
+            // Set default priority if not set (for suggestions)
+            if (string.IsNullOrEmpty(model.Priority))
+            {
+                model.Priority = "Medium";
+            }
+
+            try
+            {
+                Logger.LogInformation("Submitting form with Title: {Title}, Type: {Type}", model.Title, model.Type);
+                var result = await SubmissionService.CreateSubmissionAsync(model);
+
+                await Swal.FireAsync(
+                    "Success",
+                    "Your submission has been received successfully!",
+                    SweetAlertIcon.Success
+                );
+
+                // Redirect to MySubmissions page
+                NavigationManager.NavigateTo("/client/my-submissions");
+            }
+            catch (HttpRequestException ex)
+            {
+                Logger.LogError(ex, "Error creating submission");
+                await Swal.FireAsync(
+                    "Error",
+                    $"Failed to submit form: {ex.Message}",
+                    SweetAlertIcon.Error
+                );
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error creating submission");
+                await Swal.FireAsync(
+                    "Error",
+                    "An unexpected error occurred while submitting the form. Please try again.",
+                    SweetAlertIcon.Error
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in form submission");
+            await Swal.FireAsync(
+                "Error",
+                "An unexpected error occurred. Please try again.",
+                SweetAlertIcon.Error
+            );
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+} 

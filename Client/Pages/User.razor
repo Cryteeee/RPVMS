@@ -1,0 +1,304 @@
+@page "/user"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Client")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>User Dashboard</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="welcome-title">Welcome to Your Dashboard</h2>
+                    <p class="welcome-subtitle">Here's what's happening in your community</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Quick Actions Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h3>Quick Actions</h3>
+                </div>
+                <div class="card-body">
+                    <div class="quick-action-grid">
+                        <a href="/HomeManage" class="quick-action-item">
+                            <i class="bi bi-house-door"></i>
+                            <h4>Home Management</h4>
+                            <p>View and manage your home details</p>
+                        </a>
+                        <a href="/admin/concerns" class="quick-action-item">
+                            <i class="bi bi-chat-square-text"></i>
+                            <h4>Submit Request</h4>
+                            <p>Submit a new request or concern</p>
+                        </a>
+                        <a href="/board-messages" class="quick-action-item">
+                            <i class="bi bi-envelope"></i>
+                            <h4>Board Messages</h4>
+                            <p>View community announcements</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Requests Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>Recent Requests</h3>
+                    <a href="/admin/concerns" class="btn btn-link">View All</a>
+                </div>
+                <div class="card-body">
+                    @if (recentRequests != null && recentRequests.Any())
+                    {
+                        <div class="request-list">
+                            @foreach (var request in recentRequests)
+                            {
+                                <div class="request-item">
+                                    <div class="request-header">
+                                        <h4>@request.Title</h4>
+                                        <span class="badge @GetStatusBadgeClass(request.Status)">@request.Status</span>
+                                    </div>
+                                    <div class="request-date">@request.Date.ToShortDateString()</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <p>No recent requests</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Latest Announcements Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>Latest Announcements</h3>
+                    <a href="/board-messages" class="btn btn-link">View All</a>
+                </div>
+                <div class="card-body">
+                    @if (latestAnnouncements != null && latestAnnouncements.Any())
+                    {
+                        <div class="announcement-grid">
+                            @foreach (var announcement in latestAnnouncements)
+                            {
+                                <div class="announcement-card">
+                                    <h4>@announcement.Title</h4>
+                                    <div class="announcement-date">@announcement.Date.ToShortDateString()</div>
+                                    <p>@announcement.Summary</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <i class="bi bi-megaphone"></i>
+                            <p>No announcements at this time</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .welcome-title {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .welcome-subtitle {
+        font-size: 1.1rem;
+        color: #666;
+        margin-bottom: 0;
+    }
+
+    .quick-action-grid {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .quick-action-item {
+        padding: 1.5rem;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        text-decoration: none;
+        color: #333;
+        transition: all 0.3s ease;
+    }
+
+    .quick-action-item:hover {
+        background-color: #e9ecef;
+        transform: translateY(-2px);
+    }
+
+    .quick-action-item i {
+        font-size: 2rem;
+        color: #FFC107;
+        margin-bottom: 1rem;
+    }
+
+    .quick-action-item h4 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .quick-action-item p {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0;
+    }
+
+    .request-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .request-item {
+        padding: 1rem;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+    }
+
+    .request-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .request-header h4 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .request-date {
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .announcement-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .announcement-card {
+        padding: 1.5rem;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+    }
+
+    .announcement-card h4 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .announcement-date {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: #666;
+    }
+
+    .empty-state i {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: #dee2e6;
+    }
+</style>
+
+@code {
+    private List<RequestDto> recentRequests;
+    private List<AnnouncementDto> latestAnnouncements;
+    private string userName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userName = user.FindFirst(ClaimTypes.Name)?.Value;
+            
+            // TODO: Implement actual data fetching
+            // For now, using dummy data
+            recentRequests = new List<RequestDto>
+            {
+                new RequestDto { Title = "Maintenance Request", Status = "Pending", Date = DateTime.Now.AddDays(-1) },
+                new RequestDto { Title = "Security Concern", Status = "In Progress", Date = DateTime.Now.AddDays(-3) },
+                new RequestDto { Title = "Amenity Booking", Status = "Completed", Date = DateTime.Now.AddDays(-5) }
+            };
+
+            latestAnnouncements = new List<AnnouncementDto>
+            {
+                new AnnouncementDto { 
+                    Title = "Community Meeting", 
+                    Date = DateTime.Now.AddDays(7),
+                    Summary = "Join us for the monthly community meeting to discuss upcoming events and initiatives."
+                },
+                new AnnouncementDto {
+                    Title = "Maintenance Schedule",
+                    Date = DateTime.Now.AddDays(3),
+                    Summary = "Regular maintenance work will be carried out in common areas next week."
+                },
+                new AnnouncementDto {
+                    Title = "New Security Measures",
+                    Date = DateTime.Now.AddDays(1),
+                    Summary = "Updated security protocols will be implemented starting next month."
+                }
+            };
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "bg-warning text-dark",
+            "in progress" => "bg-info text-white",
+            "completed" => "bg-success text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+    public class RequestDto
+    {
+        public string Title { get; set; }
+        public string Status { get; set; }
+        public DateTime Date { get; set; }
+    }
+
+    public class AnnouncementDto
+    {
+        public string Title { get; set; }
+        public DateTime Date { get; set; }
+        public string Summary { get; set; }
+    }
+} 

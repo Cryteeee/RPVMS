@@ -1,0 +1,96 @@
+@page "/events"
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Client.Services
+@inject IEventService EventService
+
+<PageTitle>Events - Village Management System</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="text-center mb-5">Community Events</h1>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!events.Any())
+    {
+        <div class="alert alert-info">
+            No active events at the moment.
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var eventItem in events)
+            {
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        @if (!string.IsNullOrEmpty(eventItem.ImageUrl))
+                        {
+                            <img src="@eventItem.ImageUrl" class="card-img-top" alt="@eventItem.Title" style="height: 200px; object-fit: cover;">
+                        }
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">@eventItem.Title</h5>
+                                <span class="badge @GetStatusBadgeClass(eventItem.Status)">
+                                    @eventItem.Status
+                                </span>
+                            </div>
+                            <p class="card-text text-muted small mb-2">@eventItem.EventType</p>
+                            <p class="card-text">@eventItem.Description</p>
+                            <hr>
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-map-marker-alt me-2"></i>
+                                <span>@eventItem.Location</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-calendar me-2"></i>
+                                <span>@eventItem.EventDate.ToLocalTime().ToString("f")</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<EventListDto> events = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEvents();
+    }
+
+    private async Task LoadEvents()
+    {
+        try
+        {
+            isLoading = true;
+            events = await EventService.GetActiveEventsAsync();
+        }
+        catch (Exception)
+        {
+            events = new List<EventListDto>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Cancelled" => "bg-danger",
+        "Completed" => "bg-info",
+        "Expired" => "bg-warning",
+        _ => "bg-secondary"
+    };
+} 

@@ -1,0 +1,9 @@
+@inject NavigationManager Navigation
+@inject ILocalStorageService LocalStorage
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/");
+    }
+} 

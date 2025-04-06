@@ -1,0 +1,129 @@
+@page "/HomeManage"
+
+<PageTitle>Homeowners Management - Management System</PageTitle>
+
+<style>
+    .coming-soon-container {
+        min-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #fff5e6, #fff9ec);
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+
+    .coming-soon-icon {
+        font-size: 5rem;
+        color: #FFC107;
+        margin-bottom: 2rem;
+        animation: pulse 2s infinite;
+    }
+
+    .coming-soon-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .coming-soon-text {
+        font-size: 1.2rem;
+        color: #666;
+        max-width: 600px;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+
+    .feature-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        justify-content: center;
+        margin-top: 2rem;
+        max-width: 800px;
+    }
+
+    .feature-item {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        width: 300px;
+        transition: all 0.3s ease;
+    }
+
+    .feature-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 16px rgba(255, 193, 7, 0.2);
+    }
+
+    .feature-icon {
+        font-size: 1.5rem;
+        color: #FFC107;
+    }
+
+    .feature-text {
+        color: #333;
+        font-weight: 500;
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="coming-soon-container">
+        <i class="bi bi-houses-fill coming-soon-icon"></i>
+        <h1 class="coming-soon-title">Homeowners Management Coming Soon!</h1>
+        <p class="coming-soon-text">
+            We're developing a comprehensive homeowners management system to streamline community operations. Stay tuned for features that will make managing your residential community easier and more efficient.
+        </p>
+
+        <div class="feature-list">
+            <div class="feature-item">
+                <i class="bi bi-person-vcard feature-icon"></i>
+                <span class="feature-text">Resident Profiles & Directory</span>
+            </div>
+            
+            <div class="feature-item" @onclick="NavigateToStatistic">
+                <i class="bi bi-bar-chart-fill feature-icon"></i>
+                <span class="feature-text">Client Bills Management</span>
+            </div>
+            
+            <div class="feature-item">
+                <i class="bi bi-receipt feature-icon"></i>
+                <span class="feature-text">Billing & Payments</span>
+            </div>
+            <div class="feature-item">
+                <i class="bi bi-file-earmark-text feature-icon"></i>
+                <span class="feature-text">Document Management</span>
+            </div>
+            <div class="feature-item">
+                <i class="bi bi-graph-up feature-icon"></i>
+                <span class="feature-text">Reports & Analytics</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code
+{
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    private void NavigateToStatistic() => NavigateTo("statistic");
+
+    private void NavigateTo(string action) =>
+        NavigationManager.NavigateTo($"/ResidentProfiles&Directory/{action}");
+}

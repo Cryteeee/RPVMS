@@ -1,0 +1,1344 @@
+@page "/admin"
+@using BlazorApp1.Client.Auth
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Models
+@using System.Security.Claims
+@using BlazorApp1.Client.Models
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Logging
+@using BlazorApp1.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject ILogger<AdminDashBoard> Logger
+@inject INotificationService NotificationService
+@inject IJSRuntime JSRuntime
+@inject IBillingService BillingService
+@inject SweetAlertService swal
+
+<style>
+    :root {
+        --gold: #FFD700;
+        --gold-light: #FFE44D;
+        --gold-dark: #E6C200;
+        --black: #111827;
+        --black-light: #1F2937;
+        --black-fade: rgba(17, 24, 39, 0.8);
+        --white: #FFFFFF;
+        --white-fade: rgba(255, 255, 255, 0.9);
+        --gray-50: #F9FAFB;
+        --gray-100: #F3F4F6;
+        --gray-200: #E5E7EB;
+        --gray-300: #D1D5DB;
+    }
+
+    .dashboard-container {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1rem;
+        background-color: var(--gray-100);
+        width: 100%;
+    }
+
+    @@media (min-width: 768px) {
+        .dashboard-container {
+            padding: 1.25rem;
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .dashboard-cards {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+
+    .dashboard-cards-bottom {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+        width: 100%;
+    }
+
+    @@media (min-width: 768px) and (max-width: 1199px) {
+        .dashboard-cards,
+        .dashboard-cards-bottom {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @@media (max-width: 767px) {
+        .dashboard-cards,
+        .dashboard-cards-bottom {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .card {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--gray-200);
+        height: 100%;
+    }
+
+    @@media (min-width: 768px) {
+        .card {
+            padding: 1.5rem;
+        }
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        border-color: var(--gold);
+    }
+
+    .card::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 3px;
+        background: var(--gold);
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        flex-shrink: 0;
+    }
+
+    .card-title {
+        font-size: 0.875rem;
+        color: var(--black);
+        margin: 0;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+    }
+
+    .card-icon {
+        font-size: 1.25rem;
+        color: var(--gold);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover .card-icon {
+        transform: scale(1.2) rotate(5deg);
+        color: var(--gold-dark);
+    }
+
+    .card-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--black);
+        margin: 0;
+        line-height: 1.2;
+        animation: countUp 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @@media (min-width: 768px) {
+        .card-value {
+            font-size: 2.25rem;
+        }
+    }
+
+    .card-subtitle {
+        font-size: 0.875rem;
+        color: var(--black-fade);
+        margin-top: 0.5rem;
+    }
+
+    .weather-section {
+        background: var(--white);
+        border-radius: 24px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        width: 100%;
+        border: 1px solid var(--gray-200);
+        animation: scaleIn 0.6s ease-out;
+        transition: all 0.3s ease;
+    }
+
+    .weather-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        animation: fadeIn 0.6s ease-out;
+    }
+
+    .weather-datetime {
+        color: var(--black);
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+
+    .weather-location-input {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .weather-location-label {
+        font-size: 1rem;
+        color: var(--black);
+        font-weight: 500;
+    }
+
+    .weather-location-field {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        font-size: 1rem;
+        width: 200px;
+        transition: all 0.3s ease;
+    }
+
+    .weather-location-field:hover {
+        border-color: var(--gold);
+        box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1);
+    }
+
+    .weather-card {
+        background: linear-gradient(135deg, var(--black), var(--black-light));
+        border-radius: 20px;
+        padding: 2rem;
+        color: var(--white);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        border: 1px solid var(--gold);
+        animation: scaleIn 0.8s ease-out;
+        transition: all 0.3s ease;
+    }
+
+    .weather-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .weather-main {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 2rem;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .weather-icon-temp {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .weather-icon-large {
+        font-size: 4rem;
+        color: var(--gold);
+        animation: float 3s ease-in-out infinite;
+        transition: all 0.3s ease;
+    }
+
+    .weather-icon-large:hover {
+        transform: scale(1.1);
+        color: var(--gold-light);
+    }
+
+    .weather-temp-main {
+        font-size: 4rem;
+        font-weight: 600;
+        color: var(--white);
+        display: flex;
+        align-items: start;
+        animation: slideIn 0.8s ease-out;
+        transition: all 0.3s ease;
+    }
+
+    .weather-temp-unit {
+        font-size: 1.5rem;
+        color: var(--gold);
+        margin-top: 0.5rem;
+        margin-left: 0.25rem;
+        animation: fadeIn 1s ease-out;
+        transition: all 0.3s ease;
+    }
+
+    .weather-desc {
+        font-size: 2rem;
+        color: var(--white);
+        margin-top: 0.5rem;
+        text-transform: capitalize;
+        animation: fadeIn 1.2s ease-out;
+        transition: all 0.3s ease;
+    }
+
+    .weather-chart {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 2rem 0;
+        border: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .chart-title {
+        color: var(--white);
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+    }
+
+    .weather-stats {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        animation: fadeIn 1.4s ease-out;
+    }
+
+    .weather-stat {
+        flex: 1;
+        transition: all 0.3s ease;
+    }
+
+    .weather-stat:hover {
+        transform: translateY(-3px);
+    }
+
+    .weather-stat-label {
+        color: var(--white-fade);
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .weather-stat-value {
+        color: var(--white);
+        font-size: 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .weather-stat:hover .weather-stat-value {
+        color: var(--gold);
+    }
+
+    .forecast-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        animation: fadeIn 1.6s ease-out;
+    }
+
+    .forecast-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        border: 1px solid rgba(255, 215, 0, 0.2);
+        animation: scaleIn 0.6s ease-out;
+        transition: all 0.3s ease;
+    }
+
+    .forecast-item:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .forecast-day {
+        color: var(--gold);
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+    }
+
+    .forecast-icon {
+        font-size: 2rem;
+        color: var(--gold);
+        margin-bottom: 1rem;
+        animation: float 3s ease-in-out infinite;
+        transition: all 0.3s ease;
+    }
+
+    .forecast-item:hover .forecast-icon {
+        transform: scale(1.1);
+        color: var(--gold-light);
+    }
+
+    .forecast-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .forecast-temp {
+        color: var(--white);
+        font-size: 1.2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .forecast-item:hover .forecast-temp {
+        color: var(--gold);
+    }
+
+    .forecast-humidity {
+        color: var(--white-fade);
+        font-size: 0.9rem;
+    }
+
+    @@media (max-width: 768px) {
+        .weather-section {
+            padding: 1.5rem;
+        }
+
+        .weather-header {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .weather-main {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .weather-icon-temp {
+            justify-content: center;
+        }
+
+        .weather-temp-main {
+            font-size: 3rem;
+        }
+
+        .weather-desc {
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .forecast-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .weather-card:hover {
+            transform: none;
+        }
+
+        .forecast-item:hover {
+            transform: translateY(-3px);
+        }
+    }
+
+    .weather-icon {
+        width: 56px;
+        height: 56px;
+        margin-top: -0.25rem;
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes countUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @@keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes float {
+        0% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-6px);
+        }
+        100% {
+            transform: translateY(0px);
+        }
+    }
+
+    @@keyframes pulse {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .filter-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        align-items: stretch;
+        background: var(--white);
+        padding: 1rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--gray-200);
+    }
+
+    @@media (min-width: 768px) {
+        .filter-container {
+            flex-direction: row;
+            align-items: center;
+        }
+    }
+
+    .filter-select {
+        width: 100%;
+        padding: 0.5rem;
+        border-radius: 8px;
+        border: 1px solid var(--gray-300);
+        background-color: var(--white);
+        font-size: 0.875rem;
+        color: var(--black);
+        transition: all 0.3s ease;
+    }
+
+    @@media (min-width: 768px) {
+        .filter-select {
+            width: auto;
+            min-width: 150px;
+        }
+    }
+
+    .filter-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--black);
+        margin-right: 0.5rem;
+    }
+
+    .chart-container {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.25rem;
+        border: 1px solid var(--gray-200);
+    }
+
+    @@media (min-width: 768px) {
+        .chart-container {
+            padding: 1.5rem;
+        }
+    }
+
+    .chart-header {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    @@media (min-width: 768px) {
+        .chart-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+    }
+
+    .chart-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    @@media (min-width: 768px) {
+        .chart-controls {
+            flex-direction: row;
+            gap: 1rem;
+        }
+    }
+
+    .chart-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--black);
+        margin: 0;
+    }
+
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    @@media (min-width: 768px) {
+        .chart-wrapper {
+            height: 400px;
+        }
+    }
+
+    .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        justify-content: center;
+    }
+
+    @@media (min-width: 768px) {
+        .chart-legend {
+            justify-content: flex-start;
+            gap: 1rem;
+        }
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--black);
+    }
+
+    .legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+    }
+
+    /* Download button responsiveness */
+    .download-button-container {
+        margin-top: 1rem;
+        display: flex;
+        justify-content: center;
+    }
+
+    @@media (min-width: 768px) {
+        .download-button-container {
+            justify-content: flex-end;
+        }
+    }
+
+    /* Smooth transition for all interactive elements */
+    .btn, 
+    .form-control,
+    .alert {
+        transition: all 0.3s ease;
+    }
+
+    /* Media query adjustments */
+    @@media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+</style>
+
+<div class="filter-container">
+    <div>
+        <span class="filter-label">View Type:</span>
+        <select class="filter-select" @onchange="OnViewTypeChanged">
+            <option value="yearly" selected="@(_viewType == "yearly")">Yearly</option>
+            <option value="monthly" selected="@(_viewType == "monthly")">Monthly</option>
+        </select>
+    </div>
+
+    <div>
+        <span class="filter-label">Year:</span>
+        <select class="filter-select" @onchange="OnYearChanged">
+            @foreach (var year in _availableYears)
+            {
+                <option value="@year" selected="@(year == _selectedYear)">@year</option>
+            }
+        </select>
+    </div>
+
+    @if (_viewType == "monthly")
+    {
+        <div>
+            <span class="filter-label">Month:</span>
+            <select class="filter-select" @onchange="OnMonthChanged">
+                @for (int i = 1; i <= 12; i++)
+                {
+                    <option value="@i" selected="@(i == _selectedMonth)">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i)</option>
+                }
+            </select>
+        </div>
+    }
+</div>
+
+<div class="dashboard-cards">
+    <div class="card client-card">
+        <div class="card-header">
+            <h3 class="card-title">Total Clients</h3>
+            <i class="bi bi-people-fill card-icon"></i>
+        </div>
+        <div class="card-body">
+            <div class="card-value">@_clientCount</div>
+            <p class="card-subtitle">Active client accounts</p>
+        </div>
+    </div>
+
+    <div class="card requests-card">
+        <div class="card-header">
+            <h3 class="card-title">Total Price Water Pending Bills</h3>
+            <i class="bi bi-water card-icon"></i>
+        </div>
+        <div class="card-body">
+            <div class="card-value">₱@_totalPendingWaterBills.ToString("N2")</div>
+            <p class="card-subtitle">Total pending water bills amount</p>
+        </div>
+    </div>
+
+    <div class="card billing-card">
+        <div class="card-header">
+            <h3 class="card-title">Total Water Bills Paid</h3>
+            <i class="bi bi-cash-coin card-icon"></i>
+        </div>
+        <div class="card-body">
+            <div class="card-value">₱@_totalPaidWaterBills.ToString("N2")</div>
+            <p class="card-subtitle">Total paid water bills amount</p>
+        </div>
+    </div>
+
+    <div class="card archived-card">
+        <div class="card-header">
+            <h3 class="card-title">Others Pending Bills</h3>
+            <i class="bi bi-hourglass-split card-icon"></i>
+        </div>
+        <div class="card-body">
+            <div class="card-value">₱@_totalPendingOtherBills.ToString("N2")</div>
+            <p class="card-subtitle">Total pending other bills amount</p>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-cards-bottom">
+    <div class="card paid-other-bills-card">
+        <div class="card-header">
+            <h3 class="card-title">Others Paid Bills</h3>
+            <i class="bi bi-receipt-cutoff card-icon"></i>
+        </div>
+        <div class="card-body">
+            <div class="card-value">₱@_totalPaidOtherBills.ToString("N2")</div>
+            <p class="card-subtitle">Total paid other bills amount</p>
+        </div>
+    </div>
+    <div class="card all-pending-bills-card">
+        <div class="card-header">
+            <h3 class="card-title">All Pending Bills</h3>
+            <i class="bi bi-clock-history card-icon"></i>
+        </div>
+        <div class="card-body">
+            <div class="card-value">₱@_totalAllPendingBills.ToString("N2")</div>
+            <p class="card-subtitle">Total all pending bills amount</p>
+        </div>
+    </div>
+    <div class="card all-paid-bills-card">
+        <div class="card-header">
+            <h3 class="card-title">All Paid Bills</h3>
+            <i class="bi bi-cash-stack card-icon"></i>
+        </div>
+        <div class="card-body">
+            <div class="card-value">₱@_totalAllPaidBills.ToString("N2")</div>
+            <p class="card-subtitle">Total all paid bills amount</p>
+        </div>
+    </div>
+</div>
+
+<div class="download-button-container">
+    <button class="btn btn-primary" @onclick="DownloadAllBills">
+        <i class="bi bi-download me-2"></i>Download All Bills
+    </button>
+</div>
+
+<div class="chart-container">
+    <div class="chart-header">
+        <h3 class="chart-title">Bills Trend Analysis</h3>
+        <div class="d-flex gap-2">
+            <select class="filter-select" @onchange="OnChartTypeChanged">
+                <option value="line">Line Chart</option>
+                <option value="bar">Bar Chart</option>
+            </select>
+            <select class="filter-select" @onchange="OnChartPeriodChanged">
+                <option value="6">Last 6 Months</option>
+                <option value="12">Last 12 Months</option>
+                <option value="24">Last 24 Months</option>
+            </select>
+        </div>
+    </div>
+    <div class="chart-wrapper">
+        <canvas id="billsTrendChart"></canvas>
+    </div>
+    <div class="chart-legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #4299E1;"></div>
+            <span>Water Bills</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #48BB78;"></div>
+            <span>Other Bills</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ECC94B;"></div>
+            <span>Total Bills</span>
+        </div>
+    </div>
+</div>
+
+<div class="weather-section">
+    <div class="weather-header">
+        <div class="weather-datetime">
+            @DateTime.Now.ToString("h:mm tt, ddd, MMM dd, yyyy")
+        </div>
+        <div class="weather-location-input">
+            <span class="weather-location-label">Your city</span>
+            <input type="text" class="weather-location-field" value="Manila" readonly />
+        </div>
+    </div>
+
+    @if (_weatherError != null)
+    {
+        <div class="alert alert-danger">
+            <h4>Error Loading Weather Data</h4>
+            <p>@_weatherError</p>
+        </div>
+    }
+    else if (_weatherForecast?.Current != null)
+    {
+        <div class="weather-card">
+            <div class="weather-main">
+                <div class="weather-icon-temp">
+                    <i class="bi bi-cloud-fill weather-icon-large"></i>
+                    <div>
+                        <div class="weather-temp-main">
+                            @Math.Round(_weatherForecast.Current.Temperature)
+                            <span class="weather-temp-unit">°F</span>
+                        </div>
+                        <div class="weather-desc">@_weatherForecast.Current.Description</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="weather-stats">
+                <div class="weather-stat">
+                    <div class="weather-stat-label">Humidity</div>
+                    <div class="weather-stat-value">@_weatherForecast.Current.Humidity%</div>
+                </div>
+                <div class="weather-stat">
+                    <div class="weather-stat-label">Wind speed</div>
+                    <div class="weather-stat-value">@Math.Round(_weatherForecast.Current.WindSpeed) km/j</div>
+                </div>
+            </div>
+
+            @if (_weatherForecast.FiveDayForecast.Any())
+            {
+                <div class="forecast-grid">
+                    @foreach (var forecast in _weatherForecast.FiveDayForecast.Take(4))
+                    {
+                        <div class="forecast-item">
+                            <div class="forecast-day">@forecast.DateTime.ToString("MMM dd")</div>
+                            <i class="bi bi-cloud-fill forecast-icon"></i>
+                            <div class="forecast-details">
+                                <div class="forecast-temp">@Math.Round(forecast.Temperature)°</div>
+                                <div class="forecast-humidity">Humidity @forecast.Humidity%</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading weather data...</p>
+        </div>
+    }
+</div>
+
+@code {
+    private int _clientCount = 0;
+    private decimal _totalPendingWaterBills = 0;
+    private decimal _totalPaidWaterBills = 0;
+    private decimal _totalPendingOtherBills = 0;
+    private decimal _totalPaidOtherBills = 0;
+    private decimal _totalAllPendingBills = 0;
+    private decimal _totalAllPaidBills = 0;
+    private WeatherForecast _weatherForecast;
+    private string _weatherError;
+    private Timer _weatherUpdateTimer;
+    private HubConnection _hubConnection;
+    private HubConnection _notificationHubConnection;
+    private bool isAdminOrSuperAdmin = false;
+
+    // New state variables for filtering
+    private string _viewType = "monthly";
+    private int _selectedYear = DateTime.Now.Year;
+    private int _selectedMonth = DateTime.Now.Month;
+    private List<int> _availableYears = Enumerable.Range(2020, DateTime.Now.Year - 2020 + 1).ToList();
+
+    private int _chartMonths = 6; // Default to 6 months
+    private bool _chartInitialized = false;
+    private string _chartType = "line";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogInformation("Initializing AdminDashboard component");
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            // Check if user is admin or superadmin
+            isAdminOrSuperAdmin = user.IsInRole("Admin") || user.IsInRole("SuperAdmin");
+            
+            // Mark all user registration notifications as read (only for admin/superadmin)
+            if (isAdminOrSuperAdmin)
+            {
+                var userRegistrationNotifications = NotificationService.UnreadMessages
+                    .Where(m => m.Type == "UserRegistration")
+                    .ToList();
+
+                foreach (var notification in userRegistrationNotifications)
+                {
+                    await NotificationService.MarkAsRead(notification.MessageId);
+                }
+            }
+            
+            // Load dashboard data
+            await LoadDashboardData();
+            await LoadWeatherData();
+            
+            // Setup SignalR connection
+            if (isAdminOrSuperAdmin)
+            {
+                await SetupSignalRConnection();
+            }
+
+            // Set up timer to update weather every 30 minutes
+            _weatherUpdateTimer = new Timer(async _ =>
+            {
+                await LoadWeatherData();
+                await InvokeAsync(StateHasChanged);
+            }, null, TimeSpan.Zero, TimeSpan.FromMinutes(30));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in OnInitializedAsync: {Message}", ex.Message);
+        }
+    }
+
+    private async Task SetupSignalRConnection()
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("jwt-access-token");
+            
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/userhub"), options => {
+                    options.AccessTokenProvider = () => Task.FromResult(token);
+                })
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<int>("ClientCountChanged", count =>
+            {
+                _clientCount = count;
+                InvokeAsync(StateHasChanged);
+            });
+
+            // Add notification hub connection
+            _notificationHubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/notificationHub"), options => {
+                    options.AccessTokenProvider = () => Task.FromResult(token);
+                })
+                .WithAutomaticReconnect()
+                .Build();
+
+            _notificationHubConnection.On<BoardMessageDto>("ReceiveNotification", async (notification) =>
+            {
+                if (notification.Type == "UserRegistration")
+                {
+                    await NotificationService.AddNotification(notification);
+                    await InvokeAsync(StateHasChanged);
+                }
+            });
+
+            await _hubConnection.StartAsync();
+            await _notificationHubConnection.StartAsync();
+            Logger.LogInformation("SignalR connections established successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error setting up SignalR connection: {Message}", ex.Message);
+        }
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            var queryParams = new Dictionary<string, string>
+            {
+                { "year", _selectedYear.ToString() },
+                { "viewType", _viewType }
+            };
+
+            if (_viewType == "monthly")
+            {
+                queryParams.Add("month", _selectedMonth.ToString());
+            }
+
+            var queryString = string.Join("&", queryParams.Select(x => $"{x.Key}={x.Value}"));
+
+            // Fetch client count
+            var clientResponse = await Http.GetFromJsonAsync<int>($"api/Admin/GetClientCount?{queryString}");
+            _clientCount = clientResponse;
+
+            // Fetch total pending water bills amount
+            var pendingWaterBillsResponse = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalPendingWaterBills?{queryString}");
+            _totalPendingWaterBills = pendingWaterBillsResponse;
+
+            // Fetch total paid water bills amount
+            var paidWaterBillsResponse = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalPaidWaterBills?{queryString}");
+            _totalPaidWaterBills = paidWaterBillsResponse;
+
+            // Fetch total pending other bills amount
+            var pendingOtherBillsResponse = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalPendingOtherBills?{queryString}");
+            _totalPendingOtherBills = pendingOtherBillsResponse;
+
+            // Fetch total paid other bills amount
+            var paidOtherBillsResponse = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalPaidOtherBills?{queryString}");
+            _totalPaidOtherBills = paidOtherBillsResponse;
+
+            // Fetch total all pending bills amount
+            var allPendingBillsResponse = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalAllPendingBills?{queryString}");
+            _totalAllPendingBills = allPendingBillsResponse;
+
+            // Fetch total all paid bills amount
+            var allPaidBillsResponse = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalAllPaidBills?{queryString}");
+            _totalAllPaidBills = allPaidBillsResponse;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading dashboard data: {Message}", ex.Message);
+        }
+    }
+
+    private async Task LoadWeatherData()
+    {
+        try
+        {
+            _weatherError = null;
+            _weatherForecast = await Http.GetFromJsonAsync<WeatherForecast>("api/Weather/GetManilaCurrent");
+        }
+        catch (Exception ex)
+        {
+            _weatherError = $"Error loading weather data: {ex.Message}";
+            Console.WriteLine($"Error loading weather data: {ex.Message}");
+        }
+    }
+
+    private string GetWeatherIconUrl(string iconCode)
+    {
+        return $"https://openweathermap.org/img/wn/{iconCode}@2x.png";
+    }
+
+    // Update the event handlers
+    private async Task OnViewTypeChanged(ChangeEventArgs e)
+    {
+        _viewType = e.Value?.ToString() ?? "monthly";
+        if (_viewType == "yearly")
+        {
+            // Reset month when switching to yearly view
+            _selectedMonth = 1;
+        }
+        await LoadDashboardData();
+        StateHasChanged();
+    }
+
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int year))
+        {
+            _selectedYear = year;
+            await LoadDashboardData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnMonthChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int month))
+        {
+            _selectedMonth = month;
+            await LoadDashboardData();
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeChartAsync();
+        }
+    }
+
+    private async Task InitializeChartAsync()
+    {
+        if (_chartInitialized) return;
+
+        var chartData = await GetChartData(_chartMonths);
+        await RenderChartAsync(chartData);
+        _chartInitialized = true;
+    }
+
+    private async Task<ChartData> GetChartData(int months)
+    {
+        var endDate = DateTime.Now;
+        var startDate = endDate.AddMonths(-months + 1).Date;
+        var labels = new List<string>();
+        var waterBillsData = new List<decimal>();
+        var otherBillsData = new List<decimal>();
+        var totalBillsData = new List<decimal>();
+
+        for (var date = startDate; date <= endDate; date = date.AddMonths(1))
+        {
+            try
+            {
+                var queryParams = $"year={date.Year}&viewType=monthly&month={date.Month}";
+                
+                var waterBills = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalAllWaterBills?{queryParams}");
+                var otherBills = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalAllOtherBills?{queryParams}");
+                var totalBills = waterBills + otherBills;
+
+                labels.Add(date.ToString("MMM yyyy"));
+                waterBillsData.Add(waterBills);
+                otherBillsData.Add(otherBills);
+                totalBillsData.Add(totalBills);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error fetching chart data for {Date}", date);
+            }
+        }
+
+        return new ChartData
+        {
+            Labels = labels.ToArray(),
+            WaterBillsData = waterBillsData.ToArray(),
+            OtherBillsData = otherBillsData.ToArray(),
+            TotalBillsData = totalBillsData.ToArray()
+        };
+    }
+
+    private async Task RenderChartAsync(ChartData data)
+    {
+        var chartConfig = new
+        {
+            type = _chartType,
+            data = new
+            {
+                labels = data.Labels,
+                datasets = new[]
+                {
+                    new
+                    {
+                        label = "Water Bills",
+                        data = data.WaterBillsData,
+                        borderColor = "#4299E1",
+                        backgroundColor = _chartType == "line" ? "#4299E120" : "#4299E1",
+                        fill = _chartType == "line",
+                        tension = 0.4
+                    },
+                    new
+                    {
+                        label = "Other Bills",
+                        data = data.OtherBillsData,
+                        borderColor = "#48BB78",
+                        backgroundColor = _chartType == "line" ? "#48BB7820" : "#48BB78",
+                        fill = _chartType == "line",
+                        tension = 0.4
+                    },
+                    new
+                    {
+                        label = "Total Bills",
+                        data = data.TotalBillsData,
+                        borderColor = "#ECC94B",
+                        backgroundColor = _chartType == "line" ? "#ECC94B20" : "#ECC94B",
+                        fill = _chartType == "line",
+                        tension = 0.4
+                    }
+                }
+            },
+            options = new
+            {
+                responsive = true,
+                maintainAspectRatio = false,
+                scales = new
+                {
+                    y = new
+                    {
+                        beginAtZero = true,
+                        ticks = new
+                        {
+                            callback = "value => '₱' + value.toLocaleString()"
+                        }
+                    }
+                },
+                plugins = new
+                {
+                    tooltip = new
+                    {
+                        callbacks = new
+                        {
+                            label = "context => context.dataset.label + ': ₱' + context.raw.toLocaleString()"
+                        }
+                    }
+                }
+            }
+        };
+
+        await JSRuntime.InvokeVoidAsync("initializeChart", "billsTrendChart", chartConfig);
+    }
+
+    private async Task OnChartPeriodChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int months))
+        {
+            _chartMonths = months;
+            var chartData = await GetChartData(_chartMonths);
+            await RenderChartAsync(chartData);
+        }
+    }
+
+    private async Task OnChartTypeChanged(ChangeEventArgs e)
+    {
+        _chartType = e.Value?.ToString() ?? "line";
+        var chartData = await GetChartData(_chartMonths);
+        await RenderChartAsync(chartData);
+    }
+
+    private class ChartData
+    {
+        public string[] Labels { get; set; }
+        public decimal[] WaterBillsData { get; set; }
+        public decimal[] OtherBillsData { get; set; }
+        public decimal[] TotalBillsData { get; set; }
+    }
+
+    private async Task DownloadAllBills()
+    {
+        try
+        {
+            var result = await swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Download All Bills?",
+                Text = "This will download bills for all clients in a ZIP file. Continue?",
+                Icon = SweetAlertIcon.Question,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, download",
+                CancelButtonText = "Cancel"
+            });
+
+            if (result.IsConfirmed)
+            {
+                var fileBytes = await BillingService.DownloadAllBillsAsync();
+                var fileName = $"all_bills_{DateTime.Now:yyyyMMdd}.zip";
+                
+                await JSRuntime.InvokeVoidAsync("downloadFileFromStream", 
+                    Convert.ToBase64String(fileBytes), 
+                    "application/zip", 
+                    fileName);
+                
+                await swal.FireAsync("Success", "All bills downloaded successfully", SweetAlertIcon.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error downloading all bills");
+            await swal.FireAsync("Error", $"An error occurred while downloading the bills: {ex.Message}", SweetAlertIcon.Error);
+        }
+    }
+
+    public async void Dispose()
+    {
+        if (_weatherUpdateTimer != null)
+        {
+            await _weatherUpdateTimer.DisposeAsync();
+        }
+
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+
+        if (_notificationHubConnection != null)
+        {
+            await _notificationHubConnection.DisposeAsync();
+        }
+    }
+} 

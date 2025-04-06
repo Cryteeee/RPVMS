@@ -1,0 +1,22 @@
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Shared
+@inject INotificationService NotificationService
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Mark all concern-related notifications as read
+        var concernNotifications = NotificationService.UnreadMessages
+            .Where(m => m.Type == "RequestSubmission" || 
+                       m.Type == "ConcernSubmission" || 
+                       m.Type == "SuggestionSubmission")
+            .ToList();
+
+        foreach (var notification in concernNotifications)
+        {
+            NotificationService.MarkAsRead(notification.MessageId);
+        }
+
+        // ... rest of initialization code ...
+    }
+} 

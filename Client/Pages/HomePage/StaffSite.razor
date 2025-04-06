@@ -1,0 +1,659 @@
+﻿@page "/StaffSite"
+@layout NavbarOverview
+@using BlazorApp1.Client.Models
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+@inject SweetAlertService Swal
+
+<div class="staff-container">
+    <h2 class="section-title">Meet Our Staff</h2>
+    
+    <div class="row g-4">
+        @if (isAuthorized)
+        {
+            <div class="col-md-4">
+                <div class="staff-card add-staff-card" @onclick="() => OpenStaffDialog(null)">
+                    <div class="add-staff-content">
+                        <div class="plus-icon">
+                            <i class="bi bi-plus-lg"></i>
+                        </div>
+                        <p class="add-staff-text">Add New Staff Member</p>
+                    </div>
+                </div>
+            </div>
+        }
+        @foreach (var staff in staffMembers)
+        {
+            <div class="col-md-4">
+                <div class="staff-card">
+                    <div class="staff-image">
+                        <img src="@(string.IsNullOrEmpty(staff.ImageUrl) ? "img_avatar.png" : staff.ImageUrl)" alt="@staff.Name">
+                    </div>
+                    <div class="staff-info">
+                        <h3 class="staff-name">@staff.Name</h3>
+                        <p class="staff-position">@staff.Position</p>
+                        <p class="staff-bio">@staff.Bio</p>
+                        @if (!string.IsNullOrEmpty(staff.FacebookUrl) || !string.IsNullOrEmpty(staff.InstagramUrl))
+                        {
+                            <div class="social-links">
+                                @if (!string.IsNullOrEmpty(staff.FacebookUrl))
+                                {
+                                    <a href="@staff.FacebookUrl" class="social-icon" target="_blank"><i class="bi bi-facebook"></i></a>
+                                }
+                                @if (!string.IsNullOrEmpty(staff.InstagramUrl))
+                                {
+                                    <a href="@staff.InstagramUrl" class="social-icon" target="_blank"><i class="bi bi-instagram"></i></a>
+                                }
+                            </div>
+                        }
+                        @if (isAuthorized)
+                        {
+                            <div class="admin-overlay">
+                                <div class="admin-controls">
+                                    <button class="admin-btn edit-btn" @onclick="() => OpenStaffDialog(staff)" title="Edit Staff">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="admin-btn delete-btn" @onclick="() => DeleteStaff(staff.Id)" title="Delete Staff">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (showDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(selectedStaff?.Id == 0 ? "Add New Staff Member" : "Edit Staff Member")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@selectedStaff" OnValidSubmit="SaveStaff">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="image-upload-section mb-4">
+                            <div class="current-image">
+                                <img src="@(string.IsNullOrEmpty(selectedStaff.ImageUrl) ? "img_avatar.png" : selectedStaff.ImageUrl)" 
+                                     alt="Staff Photo" class="preview-image" />
+                            </div>
+                            <div class="image-upload-controls">
+                                <InputFile OnChange="@OnImageUpload" accept="image/*" class="d-none" id="imageUpload" />
+                                <label for="imageUpload" class="btn btn-outline-primary">
+                                    <i class="bi bi-camera-fill me-2"></i>Change Photo
+                                </label>
+                                @if (!string.IsNullOrEmpty(selectedStaff.ImageUrl))
+                                {
+                                    <button type="button" class="btn btn-outline-danger ms-2" @onclick="RemoveImage">
+                                        <i class="bi bi-trash-fill me-2"></i>Remove
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Name</label>
+                            <InputText @bind-Value="selectedStaff.Name" class="form-control" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Position</label>
+                            <InputText @bind-Value="selectedStaff.Position" class="form-control" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Bio</label>
+                            <InputTextArea @bind-Value="selectedStaff.Bio" class="form-control" rows="3" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Facebook URL (Optional)</label>
+                            <InputText @bind-Value="selectedStaff.FacebookUrl" class="form-control" placeholder="https://facebook.com/profile" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Instagram URL (Optional)</label>
+                            <InputText @bind-Value="selectedStaff.InstagramUrl" class="form-control" placeholder="https://instagram.com/username" />
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CloseDialog">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<style>
+    .staff-container {
+        padding: 3rem 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        background-color: white;
+    }
+
+    .section-title {
+        text-align: center;
+        color: #333;
+        font-size: 2.8rem;
+        font-weight: 700;
+        margin-bottom: 3.5rem;
+        position: relative;
+        font-family: 'Playfair Display', serif;
+    }
+
+    .section-title::before {
+        content: 'Meet Our Staff';
+        position: absolute;
+        top: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.9rem;
+        font-weight: 500;
+        letter-spacing: 3px;
+        color: #FFB800;
+        text-transform: uppercase;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: -15px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100px;
+        height: 3px;
+        background: linear-gradient(to right, #333 50%, #FFB800 50%);
+    }
+
+    .staff-card {
+        position: relative;
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s ease;
+        height: 100%;
+        border: 1px solid #eee;
+    }
+
+    .staff-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .add-staff-card {
+        background: linear-gradient(45deg, #f8f9fa, white);
+        border: 2px dashed #FFB800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        min-height: 400px;
+    }
+
+    .add-staff-card:hover {
+        border-color: #FFB800;
+        background: linear-gradient(45deg, #fff9e6, white);
+    }
+
+    .add-staff-content {
+        text-align: center;
+        color: #FFB800;
+        transition: all 0.3s ease;
+    }
+
+    .plus-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        transition: transform 0.3s ease;
+    }
+
+    .add-staff-card:hover .plus-icon {
+        transform: scale(1.2);
+    }
+
+    .add-staff-text {
+        font-size: 1.2rem;
+        color: #666;
+        margin: 0;
+    }
+
+    .staff-image {
+        width: 200px;
+        height: 200px;
+        margin: 2rem auto;
+        border-radius: 50%;
+        overflow: hidden;
+        position: relative;
+        border: 4px solid #FFB800;
+        box-shadow: 0 4px 15px rgba(255, 184, 0, 0.2);
+    }
+
+    .staff-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .staff-info {
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .staff-name {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .staff-position {
+        color: #FFB800;
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        letter-spacing: 0.5px;
+    }
+
+    .staff-bio {
+        color: #666;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+
+    .social-links {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .social-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 2px solid #FFB800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        background-color: white;
+    }
+
+    .social-icon:hover {
+        background-color: #FFB800;
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .admin-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: all 0.3s ease;
+        border-radius: 20px;
+    }
+
+    .staff-card:hover .admin-overlay {
+        opacity: 1;
+    }
+
+    .admin-controls {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .admin-btn {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        background: white;
+        color: #333;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transform: scale(0.9);
+    }
+
+    .admin-btn:hover {
+        transform: scale(1);
+    }
+
+    .edit-btn:hover {
+        background: #FFB800;
+        color: white;
+    }
+
+    .delete-btn:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    .image-upload-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s;
+        cursor: pointer;
+    }
+
+    .image-upload-overlay:hover {
+        opacity: 1;
+    }
+
+    .image-upload-overlay input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .image-upload-overlay i {
+        color: white;
+        font-size: 2rem;
+        pointer-events: none;
+    }
+
+    /* Modal Styling */
+    .modal-content {
+        border-radius: 15px;
+        border: none;
+    }
+
+    .modal-header {
+        border-bottom: 2px solid #FFB800;
+        background-color: #fff9e6;
+    }
+
+    .modal-title {
+        color: #333;
+        font-weight: 600;
+    }
+
+    .form-label {
+        color: #333;
+        font-weight: 500;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        padding: 0.75rem;
+    }
+
+    .form-control:focus {
+        border-color: #FFB800;
+        box-shadow: 0 0 0 0.2rem rgba(255, 184, 0, 0.25);
+    }
+
+    .btn-primary {
+        background-color: #FFB800;
+        border-color: #FFB800;
+        color: #333;
+    }
+
+    .btn-primary:hover {
+        background-color: #FFB800;
+        border-color: #FFB800;
+        color: #333;
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .image-upload-section {
+        text-align: center;
+    }
+
+    .current-image {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 3px solid #FFB800;
+    }
+
+    .preview-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .image-upload-controls {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .btn-outline-primary {
+        color: #FFB800;
+        border-color: #FFB800;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #FFB800;
+        border-color: #FFB800;
+        color: white;
+    }
+</style>
+
+@code {
+    private List<Staff> staffMembers = new List<Staff>();
+    private bool isAuthorized = false;
+    private bool showDialog = false;
+    private Staff selectedStaff;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        isAuthorized = user.IsInRole("SuperAdmin");
+
+        await LoadStaffMembers();
+    }
+
+    private async Task LoadStaffMembers()
+    {
+        try
+        {
+            var result = await Http.GetFromJsonAsync<List<Staff>>("api/Staff");
+            if (result != null)
+            {
+                staffMembers = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading staff members: {ex.Message}");
+            // Handle error appropriately
+        }
+    }
+
+    private void OpenStaffDialog(Staff staff)
+    {
+        selectedStaff = staff ?? new Staff();
+        showDialog = true;
+    }
+
+    private void CloseDialog()
+    {
+        showDialog = false;
+        selectedStaff = null;
+    }
+
+    private async Task OnImageUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var format = "image/png";
+            var resizedImage = await e.File.RequestImageFileAsync(format, 800, 800);
+            var buffer = new byte[resizedImage.Size];
+            await resizedImage.OpenReadStream().ReadAsync(buffer);
+            var imageData = new MultipartFormDataContent();
+            imageData.Add(new ByteArrayContent(buffer), "image", e.File.Name);
+
+            if (selectedStaff.Id != 0)
+            {
+                await Http.PostAsync($"api/Staff/{selectedStaff.Id}/image", imageData);
+                await LoadStaffMembers();
+            }
+            else
+            {
+                // Store the image data temporarily for new staff members
+                tempImageData = imageData;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error uploading image: {ex.Message}");
+        }
+    }
+
+    private async Task RemoveImage()
+    {
+        if (selectedStaff.Id != 0)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/Staff/{selectedStaff.Id}/image");
+                selectedStaff.ImageUrl = null;
+                await LoadStaffMembers();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error removing image: {ex.Message}");
+            }
+        }
+        else
+        {
+            selectedStaff.ImageUrl = null;
+            tempImageData = null;
+        }
+    }
+
+    private MultipartFormDataContent tempImageData;
+
+    private async Task SaveStaff()
+    {
+        try
+        {
+            if (selectedStaff.Id == 0)
+            {
+                var response = await Http.PostAsJsonAsync("api/Staff", selectedStaff);
+                var newStaff = await response.Content.ReadFromJsonAsync<Staff>();
+                
+                // Upload image if we have temporary image data
+                if (tempImageData != null && newStaff != null)
+                {
+                    await Http.PostAsync($"api/Staff/{newStaff.Id}/image", tempImageData);
+                    tempImageData = null;
+                }
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/Staff/{selectedStaff.Id}", selectedStaff);
+            }
+
+            await LoadStaffMembers();
+            CloseDialog();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving staff member: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteStaff(int id)
+    {
+        var staff = staffMembers.FirstOrDefault(s => s.Id == id);
+        if (staff == null) return;
+
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Are you sure?",
+            Text = $"You are about to delete {staff.Name}. This action cannot be undone!",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, delete",
+            ConfirmButtonColor = "#dc3545",
+            CancelButtonText = "Cancel",
+            CancelButtonColor = "#6c757d"
+        });
+
+        if (!result.IsConfirmed) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Staff/{id}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await Swal.FireAsync(
+                    "Deleted!",
+                    $"{staff.Name} has been removed from the staff.",
+                    SweetAlertIcon.Success
+                );
+                await LoadStaffMembers();
+            }
+            else
+            {
+                await Swal.FireAsync(
+                    "Error",
+                    "Failed to delete staff member. Please try again.",
+                    SweetAlertIcon.Error
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            await Swal.FireAsync(
+                "Error",
+                "An unexpected error occurred while deleting the staff member.",
+                SweetAlertIcon.Error
+            );
+            Console.WriteLine($"Error deleting staff member: {ex.Message}");
+        }
+    }
+}

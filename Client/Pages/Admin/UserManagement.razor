@@ -1,0 +1,1472 @@
+@page "/admin/users"
+@using BlazorApp1.Client.Models
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Shared.Constants
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Logging
+@using System.Security.Claims
+@implements IAsyncDisposable
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject SweetAlertService swal
+@inject IAccountService AccountService
+@inject NavigationManager _navigationManager
+@inject ILogger<UserManagement> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+@inject INotificationService NotificationService
+
+<HeadContent>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="_content/Blazored.Toast/blazored-toast.min.css" rel="stylesheet" />
+    <link href="_content/CurrieTechnologies.Razor.SweetAlert2/sweetalert2.min.css" rel="stylesheet" />
+</HeadContent>
+
+<style>
+    .page-title {
+        font-family: 'Montserrat', sans-serif;
+        color: #2c3e50;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 2rem;
+        letter-spacing: 1px;
+        position: relative;
+        padding-bottom: 0.5rem;
+    }
+
+    .page-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 60px;
+        height: 4px;
+        background: linear-gradient(90deg, #F9B42D, #ffd700);
+        border-radius: 2px;
+    }
+
+    .table-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        padding: 2rem;
+        margin-top: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .table-container:hover {
+        box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 600;
+        color: #2c3e50;
+        border-bottom: 2px solid #f1f5f9;
+        padding: 1.25rem;
+        font-size: 0.95rem;
+        letter-spacing: 0.5px;
+        background-color: #f8fafc;
+    }
+
+    .table td {
+        padding: 1.25rem;
+        vertical-align: middle;
+        font-size: 0.95rem;
+        color: #475569;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .table tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8fafc;
+        transform: translateY(-1px);
+    }
+
+    .new-user-glow {
+        animation: glow 2s ease-in-out infinite;
+        background-color: rgba(249, 180, 45, 0.05);
+    }
+
+    @@keyframes glow {
+        0% {
+            box-shadow: 0 0 5px rgba(249, 180, 45, 0.3);
+        }
+        50% {
+            box-shadow: 0 0 20px rgba(249, 180, 45, 0.3);
+        }
+        100% {
+            box-shadow: 0 0 5px rgba(249, 180, 45, 0.3);
+        }
+    }
+
+    .status-badge {
+        padding: 0.6rem 1.2rem;
+        border-radius: 25px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .status-badge::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .status-active {
+        background-color: #ecfdf5;
+        color: #059669;
+    }
+
+    .status-active::before {
+        background-color: #059669;
+    }
+
+    .status-inactive {
+        background-color: #fef2f2;
+        color: #dc2626;
+    }
+
+    .status-inactive::before {
+        background-color: #dc2626;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn-action {
+        background: none;
+        border: none;
+        padding: 0.6rem;
+        margin: 0 0.25rem;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+    }
+
+    .btn-action:hover {
+        background-color: #f1f5f9;
+        transform: translateY(-2px);
+        color: #1e293b;
+    }
+
+    .btn-action.btn-warning {
+        color: #f59e0b;
+    }
+
+    .btn-action.btn-warning:hover {
+        background-color: #fef3c7;
+        color: #d97706;
+    }
+
+    .btn-action.btn-success {
+        color: #059669;
+    }
+
+    .btn-action.btn-success:hover {
+        background-color: #ecfdf5;
+        color: #047857;
+    }
+
+    .btn-action.btn-danger {
+        color: #dc2626;
+    }
+
+    .btn-action.btn-danger:hover {
+        background-color: #fef2f2;
+        color: #b91c1c;
+    }
+
+    .search-container {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+
+    .search-box {
+        background-color: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        width: 350px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .search-box:focus {
+        border-color: #F9B42D;
+        box-shadow: 0 0 0 4px rgba(249, 180, 45, 0.15);
+        outline: none;
+    }
+
+    .search-box::placeholder {
+        color: #94a3b8;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-container {
+        background-color: white;
+        border-radius: 16px;
+        padding: 2.5rem;
+        width: 90%;
+        max-width: 600px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        transform: translateY(0);
+        transition: all 0.3s ease;
+    }
+
+    .modal-container:hover {
+        transform: translateY(-2px);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid #f1f5f9;
+    }
+
+    .modal-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.75rem;
+        color: #64748b;
+        cursor: pointer;
+        padding: 0.5rem;
+        transition: all 0.3s ease;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+    }
+
+    .modal-close:hover {
+        color: #1e293b;
+        background-color: #f1f5f9;
+        transform: rotate(90deg);
+    }
+
+    .user-details-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .detail-label {
+        font-weight: 600;
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    .detail-value {
+        color: #1e293b;
+        font-size: 1rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        padding-top: 1.5rem;
+        border-top: 2px solid #f1f5f9;
+        gap: 1rem;
+    }
+
+    .modal-button {
+        background: linear-gradient(135deg, #F9B42D, #ffd700);
+        color: #1e293b;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(249, 180, 45, 0.2);
+    }
+
+    .modal-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(249, 180, 45, 0.3);
+    }
+
+    .last-login-info {
+        display: inline-flex;
+        align-items: center;
+        color: #475569;
+        font-size: 0.95rem;
+    }
+
+    .text-muted {
+        color: #94a3b8 !important;
+        font-size: 0.9rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.75rem;
+        display: block;
+        font-size: 0.95rem;
+    }
+
+    .form-control {
+        display: block;
+        width: 100%;
+        padding: 1rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #1e293b;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .form-control:focus {
+        border-color: #F9B42D;
+        box-shadow: 0 0 0 4px rgba(249, 180, 45, 0.15);
+        outline: 0;
+    }
+
+    .validation-message {
+        color: #dc2626;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-secondary {
+        background-color: #64748b;
+        border: none;
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
+    }
+
+    .btn-secondary:hover {
+        background-color: #475569;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(100, 116, 139, 0.3);
+    }
+
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .pagination-info {
+        color: #64748b;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .pagination-controls {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .pagination-button {
+        background: linear-gradient(135deg, #F9B42D, #ffd700);
+        color: #1e293b;
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(249, 180, 45, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 40px;
+    }
+
+    .pagination-button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(249, 180, 45, 0.3);
+    }
+
+    .pagination-button:disabled {
+        background: #e2e8f0;
+        color: #94a3b8;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .page-size-selector {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .page-size-select {
+        padding: 0.75rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        background-color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .page-size-select:focus {
+        border-color: #F9B42D;
+        box-shadow: 0 0 0 4px rgba(249, 180, 45, 0.15);
+        outline: none;
+    }
+
+    .badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .email-status-cell {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .verification-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .verification-status.not-verified {
+        background-color: #fff7ed;
+        color: #c2410c;
+    }
+
+    .verification-status.verified {
+        background-color: #ecfdf5;
+        color: #059669;
+    }
+
+    .verification-status i {
+        font-size: 1rem;
+    }
+
+    .resend-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        background: none;
+        border: 2px solid #f59e0b;
+        color: #f59e0b;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .resend-button:hover {
+        background-color: #fef3c7;
+        color: #d97706;
+        transform: translateY(-1px);
+    }
+
+    .resend-button i {
+        font-size: 0.9rem;
+    }
+
+    .spinner-border {
+        width: 2rem;
+        height: 2rem;
+        border-width: 0.25rem;
+        color: #F9B42D;
+    }
+</style>
+
+<div class="container-fluid">
+    <h4 class="page-title">User Management</h4>
+
+    <div class="search-container">
+        <input type="text" class="search-box" placeholder="Search users..." @bind="searchTerm" @bind:event="oninput" />
+    </div>
+
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Email Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (users == null)
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center">
+                                <div class="spinner-border text-warning" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else if (!users.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center">No users found</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var user in paginatedUsers)
+                        {
+                            bool isNewUser = (DateTime.UtcNow - user.CreatedAt).TotalMinutes <= 1;
+                            <tr class="@(isNewUser ? "new-user-glow" : "")">
+                                <td>@user.Username</td>
+                                <td>@user.Email</td>
+                                <td>@user.Role</td>
+                                <td>
+                                    <span class="status-badge @(user.IsActive ? "status-active" : "status-inactive")">
+                                        @(user.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="email-status-cell">
+                                        @if (user.IsEmailVerified)
+                                        {
+                                            <span class="verification-status verified">
+                                                <i class="bi bi-check-circle"></i>
+                                                Verified
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="verification-status not-verified">
+                                                <i class="bi bi-exclamation-circle"></i>
+                                                Not Verified
+                                            </span>
+                                            <button class="resend-button" @onclick="() => ResendVerificationEmail(user.Id)">
+                                                <i class="bi bi-envelope"></i>
+                                                Resend
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn-action" @onclick="() => ViewUserDetails(user)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        @if (isCurrentUserSuperAdmin)
+                                        {
+                                            <button class="btn-action" @onclick="() => ShowEditRoleDialog(user)">
+                                                <i class="bi bi-shield"></i>
+                                            </button>
+                                            <button class="btn-action btn-warning" @onclick="() => EditAccount(user)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        }
+                                        @if (user.Role != "SuperAdmin" && user.Id.ToString() != currentUserId)
+                                        {
+                                            if (user.IsActive)
+                                            {
+                                                <button class="btn-action btn-warning" @onclick="() => DeactivateUser(user)">
+                                                    <i class="bi bi-person-x"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn-action btn-success" @onclick="() => ActivateUser(user)">
+                                                    <i class="bi bi-person-check"></i>
+                                                </button>
+                                            }
+                                            @if (isCurrentUserSuperAdmin)
+                                            {
+                                                <button class="btn-action btn-danger" @onclick="() => DeleteUser(user)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (users != null && users.Any())
+        {
+            <div class="pagination-container">
+                <div class="page-size-selector">
+                    <span>Show:</span>
+                    <select class="page-size-select" @bind="pageSize">
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+                <div class="pagination-info">
+                    Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredUsers.Count()) of @filteredUsers.Count() entries
+                </div>
+                <div class="pagination-controls">
+                    <button class="pagination-button" @onclick="() => ChangePage(1)" disabled="@(currentPage == 1)">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </button>
+                    <button class="pagination-button" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="pagination-button" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage >= totalPages)">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="pagination-button" @onclick="() => ChangePage(totalPages)" disabled="@(currentPage >= totalPages)">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (selectedUser != null)
+{
+    <div class="modal-overlay" @onclick="CloseUserDetails">
+        <div class="modal-container" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h5 class="modal-title">User Details</h5>
+                <button class="modal-close" @onclick="CloseUserDetails">&times;</button>
+            </div>
+            <div class="user-details-grid">
+                <div class="detail-label">Username:</div>
+                <div class="detail-value">@selectedUser.Username</div>
+
+                <div class="detail-label">Email:</div>
+                <div class="detail-value">@selectedUser.Email</div>
+
+                <div class="detail-label">Role:</div>
+                <div class="detail-value">@selectedUser.Role</div>
+
+                <div class="detail-label">Status:</div>
+                <div class="detail-value">@(selectedUser.IsActive ? "Active" : "Inactive")</div>
+
+                <div class="detail-label">Created At:</div>
+                <div class="detail-value">@selectedUser.CreatedAt.ToString("d")</div>
+
+                <div class="detail-label">Last Login:</div>
+                <div class="detail-value">
+                    @if (selectedUser.LastLoginAt.HasValue)
+                    {
+                        var phTime = selectedUser.LastLoginAt.Value.AddHours(8); // Convert to Philippines time (UTC+8)
+                        var timeAgo = DateTime.UtcNow.AddHours(8) - phTime;
+                        <span class="last-login-info">
+                            <i class="bi bi-clock-history text-muted me-1"></i>
+                            @if (timeAgo.TotalDays < 1)
+                            {
+                                @($"Today at {phTime:h:mm tt}")
+                            }
+                            else if (timeAgo.TotalDays < 2)
+                            {
+                                @($"Yesterday at {phTime:h:mm tt}")
+                            }
+                            else
+                            {
+                                @($"{phTime:MMM dd, yyyy} at {phTime:h:mm tt}")
+                            }
+                            <span class="text-muted ms-2">(Philippine Time)</span>
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Never logged in
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-button" @onclick="CloseUserDetails">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isEditingAccount)
+{
+    <div class="modal-overlay" @onclick="CloseEditAccount">
+        <div class="modal-container" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Account</h5>
+                <button class="modal-close" @onclick="CloseEditAccount">&times;</button>
+            </div>
+            <EditForm Model="editAccountModel" OnValidSubmit="HandleEditAccountSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                
+                <div class="form-group mb-3">
+                    <label class="form-label">Username (optional)</label>
+                    <InputText @bind-Value="editAccountModel.Username" class="form-control" placeholder="Leave blank to keep current username" />
+                    <ValidationMessage For="@(() => editAccountModel.Username)" class="text-danger" />
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="form-label">Email (optional)</label>
+                    <InputText @bind-Value="editAccountModel.Email" class="form-control" type="email" placeholder="Leave blank to keep current email" />
+                    <ValidationMessage For="@(() => editAccountModel.Email)" class="text-danger" />
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="form-label">Current Password</label>
+                    <InputText @bind-Value="editAccountModel.CurrentPassword" class="form-control" type="password" placeholder="Required only when changing password" />
+                    <ValidationMessage For="@(() => editAccountModel.CurrentPassword)" class="text-danger" />
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="form-label">New Password (optional)</label>
+                    <InputText @bind-Value="editAccountModel.NewPassword" class="form-control" type="password" placeholder="Leave blank to keep current password" />
+                    <ValidationMessage For="@(() => editAccountModel.NewPassword)" class="text-danger" />
+                    @if (!string.IsNullOrEmpty(editAccountModel.NewPassword))
+                    {
+                        <small class="text-muted d-block mt-1">
+                            Password must be at least 8 characters long and contain:
+                            <ul class="mb-0 mt-1">
+                                <li>At least one uppercase letter</li>
+                                <li>At least one lowercase letter</li>
+                                <li>At least one number</li>
+                            </ul>
+                        </small>
+                    }
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="form-label">Confirm New Password</label>
+                    <InputText @bind-Value="editAccountModel.ConfirmPassword" class="form-control" type="password" placeholder="Required only when setting new password" />
+                    <ValidationMessage For="@(() => editAccountModel.ConfirmPassword)" class="text-danger" />
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary me-2" @onclick="CloseEditAccount">Cancel</button>
+                    <button type="submit" class="modal-button">Save Changes</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@if (isEditingRole)
+{
+    <div class="modal-overlay" @onclick="CloseEditRoleDialog">
+        <div class="modal-container" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Role</h5>
+                <button class="modal-close" @onclick="CloseEditRoleDialog">&times;</button>
+            </div>
+            <div class="p-3">
+                <div class="form-group mb-3">
+                    <label class="form-label">Select new role for @editRoleUser?.Username</label>
+                    <select class="form-control" @bind="selectedRole">
+                        <option value="@UserRoles.Admin">Admin</option>
+                        <option value="@UserRoles.Client">Client</option>
+                        <option value="@UserRoles.User">User</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary me-2" @onclick="CloseEditRoleDialog">Cancel</button>
+                <button type="button" class="modal-button" @onclick="HandleEditRoleSubmit">Save Changes</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserDto> users;
+    private string searchTerm = "";
+    private UserDto selectedUser;
+    private UserDto editRoleUser;
+    private bool isCurrentUserSuperAdmin;
+    private string currentUserId;
+    private bool isEditingAccount;
+    private EditAccountModel editAccountModel = new();
+    private string newRole = UserRoles.User;
+    private HubConnection? hubConnection;
+    private bool isEditingRole;
+    private string selectedRole;
+
+    // Pagination parameters
+    private int currentPage = 1;
+    private int pageSize = 5;
+    private int totalPages => (int)Math.Ceiling(filteredUsers.Count() / (double)pageSize);
+
+    private IEnumerable<UserDto> filteredUsers => users?.Where(u =>
+        string.IsNullOrEmpty(searchTerm) ||
+        u.Username.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+        u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+        (u.Role?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+    ) ?? new List<UserDto>();
+
+    private IEnumerable<UserDto> paginatedUsers => filteredUsers
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize);
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+        }
+    }
+
+    private async Task SetupSignalRConnection()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(_navigationManager.ToAbsoluteUri("/userhub"))
+                .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.Zero, TimeSpan.FromSeconds(10) })
+                .Build();
+
+            hubConnection.On<int, bool>("EmailVerificationStatusChanged", (userId, isVerified) =>
+            {
+                var user = users?.FirstOrDefault(u => u.Id == userId);
+                if (user != null)
+                {
+                    user.IsEmailVerified = isVerified;
+                    InvokeAsync(StateHasChanged);
+                }
+            });
+
+            hubConnection.Closed += async (error) =>
+            {
+                if (error != null)
+                {
+                    Logger.LogWarning("SignalR connection closed with error: {Error}", error.Message);
+                }
+                await Task.Delay(5000); // Wait 5 seconds before attempting to reconnect
+                await ConnectWithRetry();
+            };
+
+            await ConnectWithRetry();
+        }
+        catch (Exception ex)
+        {
+            // Log the error but don't prevent the component from loading
+            Logger.LogError(ex, "Error setting up SignalR connection - real-time updates may not be available");
+        }
+    }
+
+    private async Task ConnectWithRetry(int maxAttempts = 3)
+    {
+        if (hubConnection == null) return;
+
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            try
+            {
+                await hubConnection.StartAsync();
+                Logger.LogInformation("SignalR connection established successfully");
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (i == maxAttempts - 1) // Last attempt
+                {
+                    Logger.LogError(ex, "Failed to establish SignalR connection after {Attempts} attempts", maxAttempts);
+                    return;
+                }
+                await Task.Delay(1000 * (i + 1)); // Progressive delay between attempts
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogInformation("Initializing UserManagement component");
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            isCurrentUserSuperAdmin = user.IsInRole("SuperAdmin");
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            
+            // Mark all user registration notifications as read
+            var registrationNotifications = NotificationService.UnreadMessages
+                .Where(m => m.Type == "UserRegistration")
+                .ToList();
+
+            foreach (var notification in registrationNotifications)
+            {
+                await NotificationService.MarkAsRead(notification.MessageId);
+            }
+            
+            // Load users first
+            await LoadUsers();
+            
+            // Setup SignalR connection after users are loaded
+            _ = SetupSignalRConnection(); // Run in background
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in OnInitializedAsync: {Message}", ex.Message);
+        }
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            Logger.LogInformation("Loading users...");
+            searchTerm = "";
+
+            var response = await AccountService.GetAllUsersAsync();
+
+            Logger.LogInformation("GetAllUsersAsync response received. Success: {Success}, Message: {Message}", response.IsSuccess, response.Message);
+            
+            if (response.IsSuccess)
+            {
+                users = response.Data;
+                currentPage = 1;
+                Logger.LogInformation("Users loaded successfully. Count: {Count}", users?.Count ?? 0);
+                StateHasChanged();
+            }
+            else
+            {
+                Logger.LogWarning("Failed to load users: {Message}", response.Message);
+                await swal.FireAsync("Error", "Failed to load users: " + response.Message, SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading users");
+            await swal.FireAsync("Error", "Failed to load users: " + ex.Message, SweetAlertIcon.Error);
+        }
+    }
+
+    private void ViewUserDetails(UserDto user)
+    {
+        selectedUser = user;
+    }
+
+    private void CloseUserDetails()
+    {
+        selectedUser = null;
+    }
+
+    private async Task DeactivateUser(UserDto user)
+    {
+        if (user.Id.ToString() == currentUserId)
+        {
+            await swal.FireAsync("Error", "You cannot deactivate your own account", SweetAlertIcon.Error);
+            return;
+        }
+
+        var result = await swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Are you sure?",
+            Text = $"Do you want to deactivate user {user.Username}?",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, deactivate",
+            CancelButtonText = "Cancel"
+        });
+
+        if (result.IsConfirmed)
+        {
+            var response = await AccountService.DeactivateUserAsync(user.Id);
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync("Success", "User deactivated successfully", SweetAlertIcon.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                await swal.FireAsync("Error", "Failed to deactivate user: " + response.Message, SweetAlertIcon.Error);
+            }
+        }
+    }
+
+    private async Task ActivateUser(UserDto user)
+    {
+        if (user.Id.ToString() == currentUserId)
+        {
+            await swal.FireAsync("Error", "You cannot activate your own account", SweetAlertIcon.Error);
+            return;
+        }
+
+        var result = await swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Are you sure?",
+            Text = $"Do you want to activate user {user.Username}?",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, activate",
+            CancelButtonText = "Cancel"
+        });
+
+        if (result.IsConfirmed)
+        {
+            var response = await AccountService.ActivateUserAsync(user.Id);
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync("Success", "User activated successfully", SweetAlertIcon.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                await swal.FireAsync("Error", "Failed to activate user: " + response.Message, SweetAlertIcon.Error);
+            }
+        }
+    }
+
+    private async Task ShowEditRoleDialog(UserDto user)
+    {
+        if (!isCurrentUserSuperAdmin)
+        {
+            await swal.FireAsync("Error", "Only SuperAdmin can modify user roles", SweetAlertIcon.Error);
+            return;
+        }
+
+        if (user.Role == UserRoles.SuperAdmin)
+        {
+            await swal.FireAsync("Error", "Cannot modify SuperAdmin role", SweetAlertIcon.Error);
+            return;
+        }
+
+        editRoleUser = user;
+        selectedRole = user.Role;
+        isEditingRole = true;
+    }
+
+    private void CloseEditRoleDialog()
+    {
+        isEditingRole = false;
+        editRoleUser = null;
+        selectedRole = null;
+    }
+
+    private async Task HandleEditRoleSubmit()
+    {
+        if (editRoleUser == null || string.IsNullOrEmpty(selectedRole))
+        {
+            Logger.LogWarning("Invalid role selection attempt");
+            await swal.FireAsync("Error", "Invalid role selection", SweetAlertIcon.Error);
+            return;
+        }
+
+        var oldRole = editRoleUser.Role;
+        var userId = editRoleUser.Id;
+        var username = editRoleUser.Username;
+        var newRole = selectedRole;
+        var isCurrentUser = userId.ToString() == currentUserId;
+
+        Logger.LogInformation("Attempting to update role for user {UserId} from {OldRole} to {NewRole}", userId, oldRole, newRole);
+
+        // Close the modal first
+        CloseEditRoleDialog();
+
+        try
+        {
+            // Create a cancellation token source with a timeout
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+            // Show loading state
+            var loadingTask = swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Updating Role",
+                Text = "Please wait...",
+                AllowOutsideClick = false,
+                AllowEscapeKey = false,
+                ShowConfirmButton = false,
+                ShowCancelButton = false,
+                DidOpen = new SweetAlertCallback(() => Task.CompletedTask)
+            });
+
+            Logger.LogInformation("Making API call to update user role...");
+            
+            // Make the API call
+            var response = await AccountService.UpdateUserRoleAsync(userId, newRole);
+            
+            Logger.LogInformation("Role update API response received. Success: {Success}, Message: {Message}", 
+                response?.IsSuccess ?? false, response?.Message ?? "No response");
+
+            // Ensure loading dialog is closed
+            try 
+            {
+                await swal.CloseAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error closing loading dialog");
+            }
+
+            if (response?.IsSuccess == true)
+            {
+                Logger.LogInformation("Role update successful");
+                
+                // Handle current user role change
+                if (isCurrentUser)
+                {
+                    var logoutResult = await swal.FireAsync(new SweetAlertOptions
+                    {
+                        Title = "Role Updated",
+                        Text = $"Your role has been changed from {oldRole} to {newRole}. You need to log out and log back in to apply the changes. Would you like to log out now?",
+                        Icon = SweetAlertIcon.Success,
+                        ShowCancelButton = true,
+                        ConfirmButtonText = "Yes, log out now",
+                        CancelButtonText = "No, I'll do it later"
+                    });
+
+                    if (logoutResult.IsConfirmed)
+                    {
+                        Logger.LogInformation("User chose to logout after role change");
+                        _navigationManager.NavigateTo("/logout");
+                        return;
+                    }
+                }
+                else
+                {
+                    await swal.FireAsync("Success", $"Role updated successfully from {oldRole} to {newRole}", SweetAlertIcon.Success);
+                }
+                
+                Logger.LogInformation("Reloading users after successful role update");
+                await LoadUsers();
+            }
+            else
+            {
+                var errorMessage = response?.Message ?? "Failed to update role";
+                Logger.LogWarning("Failed to update role: {Message}", errorMessage);
+                await swal.FireAsync("Error", errorMessage, SweetAlertIcon.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Role update operation timed out");
+            await swal.FireAsync("Error", "The operation timed out. Please try again.", SweetAlertIcon.Error);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.LogError(ex, "Unauthorized access when updating role for user {UserId}", userId);
+            await swal.FireAsync("Error", "You are not authorized to modify user roles", SweetAlertIcon.Error);
+            _navigationManager.NavigateTo("/logout");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating role for user {UserId}", userId);
+            await swal.FireAsync("Error", "Failed to update role: " + ex.Message, SweetAlertIcon.Error);
+        }
+    }
+
+    private void EditAccount(UserDto user)
+    {
+        if (user.Role == "SuperAdmin" && user.Id != int.Parse(currentUserId))
+        {
+            swal.FireAsync("Error", "Cannot modify other SuperAdmin accounts", SweetAlertIcon.Error);
+            return;
+        }
+
+        editAccountModel = new EditAccountModel
+        {
+            UserId = user.Id,
+            Username = string.Empty, // Don't prefill to prevent accidental changes
+            Email = string.Empty,    // Don't prefill to prevent accidental changes
+            CurrentPassword = string.Empty,
+            NewPassword = string.Empty,
+            ConfirmPassword = string.Empty
+        };
+        selectedUser = user;
+        isEditingAccount = true;
+        StateHasChanged();
+    }
+
+    private void CloseEditAccount()
+    {
+        isEditingAccount = false;
+        selectedUser = null;
+        editAccountModel = new EditAccountModel();
+    }
+
+    private async Task HandleEditAccountSubmit()
+    {
+        try
+        {
+            if (selectedUser == null)
+            {
+                await swal.FireAsync("Error", "User not found", SweetAlertIcon.Error);
+                return;
+            }
+
+            bool hasChanges = false;
+            bool isPasswordChange = !string.IsNullOrWhiteSpace(editAccountModel.NewPassword);
+            bool isEmailChange = !string.IsNullOrWhiteSpace(editAccountModel.Email) && 
+                               editAccountModel.Email.Trim() != selectedUser.Email;
+            bool isUsernameChange = !string.IsNullOrWhiteSpace(editAccountModel.Username) && 
+                                  editAccountModel.Username.Trim() != selectedUser.Username;
+
+            // Validate password change if attempting to change password
+            if (isPasswordChange)
+            {
+                if (string.IsNullOrWhiteSpace(editAccountModel.CurrentPassword))
+                {
+                    await swal.FireAsync("Error", "Current password is required to change password", SweetAlertIcon.Error);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(editAccountModel.ConfirmPassword) || 
+                    editAccountModel.NewPassword != editAccountModel.ConfirmPassword)
+                {
+                    await swal.FireAsync("Error", "New password and confirmation password do not match", SweetAlertIcon.Error);
+                    return;
+                }
+
+                hasChanges = true;
+            }
+
+            // Check if email is being changed
+            if (isEmailChange)
+            {
+                var confirmResult = await swal.FireAsync(new SweetAlertOptions
+                {
+                    Title = "Confirm Email Change",
+                    Text = "The user will need to verify the new email address. Continue?",
+                    Icon = SweetAlertIcon.Warning,
+                    ShowCancelButton = true,
+                    ConfirmButtonText = "Yes",
+                    CancelButtonText = "No"
+                });
+
+                if (!confirmResult.IsConfirmed)
+                {
+                    editAccountModel.Email = null;
+                }
+                else
+                {
+                    hasChanges = true;
+                }
+            }
+
+            if (isUsernameChange)
+            {
+                hasChanges = true;
+            }
+
+            if (!hasChanges)
+            {
+                await swal.FireAsync("Info", "No changes detected", SweetAlertIcon.Info);
+                return;
+            }
+
+            // Create update model with only changed fields
+            var updateModel = new UpdateAccountDto
+            {
+                UserId = selectedUser.Id,
+                Username = isUsernameChange ? editAccountModel.Username.Trim() : null,
+                Email = isEmailChange ? editAccountModel.Email.Trim() : null,
+                CurrentPassword = isPasswordChange ? editAccountModel.CurrentPassword : null,
+                NewPassword = isPasswordChange ? editAccountModel.NewPassword : null,
+                ConfirmPassword = isPasswordChange ? editAccountModel.ConfirmPassword : null
+            };
+
+            var response = await AccountService.UpdateAccountAsync(updateModel);
+
+            if (response.IsSuccess)
+            {
+                if (isEmailChange)
+                {
+                    await AccountService.SendVerificationEmailAsync(selectedUser.Id);
+                    await swal.FireAsync("Success", "Account updated and verification email sent", SweetAlertIcon.Success);
+                }
+                else
+                {
+                    await swal.FireAsync("Success", "Account updated successfully", SweetAlertIcon.Success);
+                }
+                
+                await LoadUsers();
+                CloseEditAccount();
+            }
+            else
+            {
+                string errorMessage = response.Message;
+                if (errorMessage.Contains("password", StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMessage = "Invalid current password";
+                }
+                await swal.FireAsync("Error", errorMessage, SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating account for user {UserId}", selectedUser?.Id);
+            await swal.FireAsync("Error", "An error occurred while updating the account", SweetAlertIcon.Error);
+        }
+    }
+        
+    private async Task DeleteUser(UserDto user)
+    {
+        if (user.Role == "SuperAdmin")
+        {
+            await swal.FireAsync("Error", "Cannot delete SuperAdmin account", SweetAlertIcon.Error);
+            return;
+        }
+
+        var result = await swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Are you sure?",
+            Text = $"Do you want to delete user {user.Username}? This action cannot be undone.",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, delete",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#dc3545"
+        });
+
+        if (result.IsConfirmed)
+        {
+            var response = await AccountService.DeleteUserAsync(user.Id);
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync("Success", "User deleted successfully", SweetAlertIcon.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                await swal.FireAsync("Error", "Failed to delete user: " + response.Message, SweetAlertIcon.Error);
+            }
+        }
+    }
+
+    private async Task ResendVerificationEmail(int userId)
+    {
+        var result = await swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Resend Verification Email",
+            Text = "Are you sure you want to resend the verification email?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, resend",
+            CancelButtonText = "Cancel"
+        });
+
+        if (result.IsConfirmed)
+        {
+            var response = await AccountService.SendVerificationEmailAsync(userId);
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync("Success", "Verification email sent successfully", SweetAlertIcon.Success);
+            }
+            else
+            {
+                await swal.FireAsync("Error", "Failed to send verification email: " + response.Message, SweetAlertIcon.Error);
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadUsers();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (hubConnection is not null)
+            {
+                await hubConnection.DisposeAsync();
+                Logger.LogInformation("SignalR connection disposed successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error disposing SignalR connection");
+        }
+    }
+}

@@ -1,0 +1,1614 @@
+﻿@page "/ClientManagement"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User,Client")]
+@using BlazorApp1.Shared.Models
+@using BlazorApp1.Client.Services
+@using BlazorApp1.Shared
+@using BlazorApp1.Shared.Constants
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Logging
+@using System.ComponentModel.DataAnnotations
+@inject SweetAlertService swal
+@inject IAccountService AccountService
+@inject IBillingService BillingService
+@inject NavigationManager _navigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+
+<AuthorizeView Context="mainContext">
+    <Authorized>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+            <h3 class="mb-0">Client Profiles</h3>
+            <div class="d-flex flex-column flex-sm-row gap-3 w-100 w-md-auto">
+                <div class="input-group flex-grow-0">
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" class="form-control" placeholder="Search clients..."
+                           @bind="searchTerm" @bind:event="oninput" @onkeyup="HandleSearch" />
+                    @if (!string.IsNullOrEmpty(searchTerm))
+                    {
+                        <button class="btn btn-outline-secondary" @onclick="ClearSearch">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    }
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2 flex-shrink-0">
+                    <AuthorizeView Roles="SuperAdmin,Admin" Context="priceContext">
+                        <button class="btn btn-primary" @onclick="ShowGlobalSetPriceDialog">
+                            <i class="bi bi-currency-dollar me-1"></i> Set Global Cubic Price
+                        </button>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin,Admin,User" Context="monthlyContext">
+                        <button class="btn btn-secondary" @onclick="ShowGlobalMonthlyPriceDialog">
+                            <i class="bi bi-calendar-check me-1"></i> Set Global Monthly Price
+                        </button>
+                    </AuthorizeView>
+                </div>
+            </div>
+        </div>
+            
+        @if (loading)
+        {
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (filteredUsers == null || !filteredUsers.Any())
+        {
+            <div class="alert alert-info">No users found.</div>
+        }
+        else
+        {
+            <div class="mb-3">
+                <div class="sorting-buttons d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-secondary @(sortField == "Username" ? "active" : "")" 
+                            @onclick='() => SortUsers("Username")'>
+                        <span class="d-flex align-items-center">
+                            Name
+                            @if (sortField == "Username")
+                            {
+                                <i class="bi @(sortAscending ? "bi-sort-alpha-down" : "bi-sort-alpha-up") ms-1"></i>
+                            }
+                        </span>
+                    </button>
+                    <button class="btn btn-outline-secondary @(sortField == "Email" ? "active" : "")" 
+                            @onclick='() => SortUsers("Email")'>
+                        <span class="d-flex align-items-center">
+                            Email
+                            @if (sortField == "Email")
+                            {
+                                <i class="bi @(sortAscending ? "bi-sort-alpha-down" : "bi-sort-alpha-up") ms-1"></i>
+                            }
+                        </span>
+                    </button>
+                    <button class="btn btn-outline-secondary @(sortField == "CreatedAt" ? "active" : "")" 
+                            @onclick='() => SortUsers("CreatedAt")'>
+                        <span class="d-flex align-items-center">
+                            Registration Date
+                            @if (sortField == "CreatedAt")
+                            {
+                                <i class="bi @(sortAscending ? "bi-sort-down" : "bi-sort-up") ms-1"></i>
+                            }
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                @foreach (var user in filteredUsers)
+                {
+                    <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="avatar-placeholder me-3">
+                                        <i class="bi bi-person-circle fs-1"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="card-title mb-0">@user.Username</h5>
+                                        <small class="text-muted">@user.Email</small>
+                                    </div>
+                                </div>
+                                <div class="user-details">
+                                    <p class="mb-1"><i class="bi bi-person-badge me-2"></i>Role: @user.Role</p>
+                                    <p class="mb-1"><i class="bi bi-calendar-check me-2"></i>Created: @user.CreatedAt.ToShortDateString()</p>
+                                    <p class="mb-1"><i class="bi bi-telephone me-2"></i>Phone: @GetPhoneNumber(user)</p>
+                                    <p class="mb-1">
+                                        <i class="bi bi-circle-fill me-2" style="color: @GetStatusColor(user)"></i>
+                                        Status: @GetStatusText(user)
+                                    </p>
+                                </div>
+                                <div class="mt-3 d-flex flex-column gap-2">
+                                    <button class="btn btn-success btn-sm" @onclick="() => ShowBillsDialog(user)">
+                                        <i class="bi bi-list-check me-1"></i> View Bills
+                                    </button>
+                                    <AuthorizeView Roles="SuperAdmin,Admin,User" Context="createBillContext">
+                                        <button class="btn btn-info btn-sm" @onclick="() => ShowWaterBillingDialog(user)">
+                                            <i class="bi bi-water me-1"></i> Create Water Bill
+                                        </button>
+                                        <div class="dropdown">
+                                            <button class="btn btn-primary btn-sm w-100 dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-plus-circle me-1"></i> Create Other Bill
+                                            </button>
+                                            <ul class="dropdown-menu w-100" aria-labelledby="dropdownMenuButton">
+                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Necessities)">
+                                                    <i class="bi bi-basket me-1"></i> Necessities Bill
+                                                </button></li>
+                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Emergency)">
+                                                    <i class="bi bi-exclamation-triangle me-1"></i> Emergency Bill
+                                                </button></li>
+                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Maintenance)">
+                                                    <i class="bi bi-tools me-1"></i> Maintenance Bill
+                                                </button></li>
+                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Monthly)">
+                                                    <i class="bi bi-calendar-month me-1"></i> Monthly Bill
+                                                </button></li>
+                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Other)">
+                                                    <i class="bi bi-three-dots me-1"></i> Other Bill
+                                                </button></li>
+                                            </ul>
+                                        </div>
+                                    </AuthorizeView>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            You are not authorized to view this page. Please log in with appropriate credentials.
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@if (showBillsDialog)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.1);" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bills for @selectedUser?.Username</h5>
+                    <button type="button" class="btn-close" @onclick="CloseBillsDialog"></button>
+                </div>
+                <div class="modal-body">
+                    @if (loadingUserBills)
+                    {
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (userBills == null || !userBills.Any())
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            No bills found for this user.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date Today</th>
+                                        <th>Bill Type</th>
+                                        <th>Description</th>
+                                        <th>Amount</th>
+                                        <th>Due Date</th>
+                                        <th>Status</th>
+                                        <th>OR Number</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var bill in userBills.OrderByDescending(b => b.BillDate))
+                                    {
+                                        <tr class="@(bill.DueDate < DateTime.Today && !bill.IsPaid ? "table-danger" : "")">
+                                            <td>@bill.BillDate.ToShortDateString()</td>
+                                            <td>
+                                                <span class="badge @GetBillTypeBadgeClass(bill.BillType)">
+                                                    @bill.BillType
+                                                </span>
+                                            </td>
+                                            <td>@bill.Description</td>
+                                            <td>
+                                                @if (bill.BillType == "Water" && bill.CubicMeter.HasValue)
+                                                {
+                                                    <div>
+                                                        <small class="text-muted">
+                                                            Previous: @(bill.PreviousCubicMeter?.ToString("N2") ?? "0.00") m³<br/>
+                                                            Current: @(bill.CubicMeter?.ToString("N2") ?? "0.00") m³<br/>
+                                                            Rate: ₱@(bill.PricePerCubicMeter?.ToString("N2") ?? "0.00")/m³
+                                                        </small>
+                                                        <br/>
+                                                    </div>
+                                                }
+                                                ₱@bill.Amount.ToString("N2")
+                                            </td>
+                                            <td>@bill.DueDate.ToShortDateString()</td>
+                                            <td>
+                                                <span class="badge @GetBillStatusClass(bill.Status)">
+                                                    @bill.Status
+                                                </span>
+                                            </td>
+                                            <td>@(bill.ORNumber ?? "-")</td>
+                                            <td>
+                                                <div class="d-flex gap-1 justify-content-start align-items-center">
+                                                    @if (!bill.IsPaid)
+                                                    {
+                                                        <AuthorizeView Roles="SuperAdmin,Admin,User" Context="markPaidContext">
+                                                            <button class="btn btn-success btn-sm" title="Mark as Paid" @onclick="() => ShowMarkAsPaidDialog(bill)">
+                                                                <i class="bi bi-check-circle"></i>
+                                                            </button>
+                                                        </AuthorizeView>
+                                                    }
+                                                    <div class="btn-group">
+                                                        <AuthorizeView Roles="SuperAdmin,Admin" Context="deleteBillContext">
+                                                            <button class="btn btn-danger btn-sm" title="Delete Bill" @onclick="() => DeleteBill(bill)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </AuthorizeView>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <AuthorizeView Roles="SuperAdmin,Admin" Context="deleteAllContext">
+                        <button type="button" class="btn btn-danger me-2" @onclick="DeleteAllBills">
+                            <i class="bi bi-trash me-1"></i> Delete All Bills
+                        </button>
+                    </AuthorizeView>
+                    <button type="button" class="btn btn-info me-2" @onclick="DownloadBills">
+                        <i class="bi bi-download me-1"></i> Download Bills
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseBillsDialog">
+                        <i class="bi bi-x-circle me-1"></i> Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showMarkAsPaidDialog)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.1);" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mark Bill as Paid</h5>
+                    <button type="button" class="btn-close" @onclick="CloseMarkAsPaidDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">OR Number</label>
+                        <input type="text" class="form-control" @bind="orNumber" placeholder="Enter OR Number" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseMarkAsPaidDialog">
+                        <i class="bi bi-x-circle me-1"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-success" @onclick="HandleMarkAsPaid">
+                        <i class="bi bi-check-circle me-1"></i> Confirm Payment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showSetPriceDialog)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.1);" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title">Set Cubic Meter Price for @selectedUser?.Username</h5>
+                    <button type="button" class="btn-close" @onclick="CloseSetPriceDialog"></button>
+                </div>
+                <EditForm Model="@cubicPriceModel" OnValidSubmit="HandleSetPriceSubmit">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Set the price per cubic meter for water consumption.
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Price per Cubic Meter (₱)</label>
+                            <InputNumber @bind-Value="cubicPriceModel.PricePerCubicMeter" class="form-control" step="0.01" />
+                            <ValidationMessage For="@(() => cubicPriceModel.PricePerCubicMeter)" class="text-danger" />
+                            <small class="text-muted">Enter the price per cubic meter of water</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseSetPriceDialog">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Save Price
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showWaterBillingDialog)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.1);" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Water Bill for @selectedUser?.Username</h5>
+                    <button type="button" class="btn-close" @onclick="CloseWaterBillingDialog"></button>
+                </div>
+                <EditForm Model="@waterBillingModel" OnValidSubmit="HandleWaterBillingSubmit">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Enter the current water meter reading and set the due date.
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Current Meter Reading (cubic meters)</label>
+                            <InputNumber @bind-Value="waterBillingModel.CubicMeterUsed" class="form-control" step="0.01" />
+                            <ValidationMessage For="@(() => waterBillingModel.CubicMeterUsed)" class="text-danger" />
+                            <small class="text-muted">Enter the current meter reading</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Due Date</label>
+                            <InputDate @bind-Value="waterBillingModel.DueDate" class="form-control" />
+                            <ValidationMessage For="@(() => waterBillingModel.DueDate)" class="text-danger" />
+                            <small class="text-muted">Select the due date for this bill</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseWaterBillingDialog">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Create Bill
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showOtherBillingDialog)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.1);" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create @selectedBillType.ToString() Bill for @selectedUser?.Username</h5>
+                    <button type="button" class="btn-close" @onclick="CloseOtherBillingDialog"></button>
+                </div>
+                <EditForm Model="@otherBillingModel" OnValidSubmit="HandleOtherBillingSubmit">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Enter the bill details below.
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₱</span>
+                                <InputNumber @bind-Value="otherBillingModel.Amount" class="form-control" step="0.01" />
+                            </div>
+                            <ValidationMessage For="@(() => otherBillingModel.Amount)" class="text-danger" />
+                            <small class="text-muted">Enter the bill amount</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <InputTextArea @bind-Value="otherBillingModel.Description" class="form-control" rows="3" />
+                            <ValidationMessage For="@(() => otherBillingModel.Description)" class="text-danger" />
+                            <small class="text-muted">Enter a detailed description of the bill</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Due Date</label>
+                            <InputDate @bind-Value="otherBillingModel.DueDate" class="form-control" />
+                            <ValidationMessage For="@(() => otherBillingModel.DueDate)" class="text-danger" />
+                            <small class="text-muted">Select the due date for this bill</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseOtherBillingDialog">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i> Create Bill
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showMonthlyPriceDialog)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.1);" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title">Set Global Monthly Payment Price</h5>
+                    <button type="button" class="btn-close" @onclick="CloseMonthlyPriceDialog"></button>
+                </div>
+                <EditForm Model="@monthlyPriceModel" OnValidSubmit="HandleMonthlyPriceSubmit">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Set the monthly payment price that will apply to all clients.
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Monthly Payment Price (₱)</label>
+                            <InputNumber @bind-Value="monthlyPriceModel.MonthlyPrice" class="form-control" step="0.01" />
+                            <ValidationMessage For="@(() => monthlyPriceModel.MonthlyPrice)" class="text-danger" />
+                            <small class="text-muted">Enter the monthly payment amount</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseMonthlyPriceDialog">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-save me-1"></i> Save Price
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    :root {
+        --primary-color: #ffd54f; /* Softer yellow */
+        --primary-light: #ffe082; /* Light yellow */
+        --primary-dark: #ffb300; /* Darker yellow */
+        --secondary-color: #424242; /* Soft dark gray */
+        --secondary-light: #616161; /* Medium gray */
+        --secondary-dark: #212121; /* Darker gray */
+        --background-light: #f5f5f5; /* Light gray background */
+        --text-dark: #2c2c2c; /* Soft black for text */
+        --text-light: #fafafa; /* Off-white for text */
+        --hover-yellow: #ffecb3; /* Very light yellow for hover */
+        --border-color: #e0e0e0; /* Light gray for borders */
+    }
+
+    .avatar-placeholder {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--secondary-color);
+        background-color: var(--primary-light);
+        border-radius: 1rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        background-color: white;
+        margin: 0;
+        padding: 0;
+        border-radius: 1rem;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .card-body {
+        padding: 0.75rem;
+    }
+
+    .user-details {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .user-details p {
+        margin-bottom: 0.25rem;
+    }
+
+    .user-details i {
+        color: var(--primary-dark);
+    }
+
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1050;
+        overflow-x: hidden;
+        overflow-y: auto;
+        outline: 0;
+        background: rgba(0,0,0,0.5);
+    }
+
+    .modal-dialog {
+        position: relative;
+        margin: 1.75rem auto;
+        pointer-events: auto;
+    }
+
+    .modal-content {
+        position: relative;
+        background-color: #fff;
+        border-radius: 1.25rem;
+        border: none;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .validation-message {
+        color: var(--secondary-dark);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .form-control.invalid {
+        border-color: var(--secondary-light);
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(255, 213, 79, 0.25);
+    }
+
+    /* Action buttons */
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        border-radius: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .btn-sm i {
+        font-size: 1rem;
+    }
+
+    .table {
+        --bs-table-hover-bg: var(--hover-yellow);
+        --bs-table-hover-color: var(--text-dark);
+        border-color: var(--border-color);
+        border-radius: 1rem;
+        overflow: hidden;
+    }
+
+    .table td, .table th {
+        border-color: var(--border-color);
+    }
+
+    .table .btn {
+        transition: all 0.2s;
+    }
+
+    .table .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Badge colors */
+    .badge.bg-success {
+        background-color: var(--secondary-color) !important;
+        color: var(--primary-light) !important;
+    }
+
+    .badge.bg-warning {
+        background-color: var(--primary-light) !important;
+        color: var(--text-dark) !important;
+    }
+
+    .badge.bg-danger {
+        background-color: var(--secondary-light) !important;
+        color: var(--text-light) !important;
+    }
+
+    .badge.bg-info {
+        background-color: var(--primary-light) !important;
+        color: var(--text-dark) !important;
+    }
+
+    .badge.bg-secondary {
+        background-color: var(--secondary-light) !important;
+        color: var(--text-light) !important;
+    }
+
+    .badge.bg-primary {
+        background-color: var(--primary-color) !important;
+        color: var(--text-dark) !important;
+    }
+
+    /* Input group styling */
+    .input-group-text {
+        background-color: var(--background-light);
+        border-color: var(--border-color);
+        color: var(--text-dark);
+        border-radius: 0.75rem 0 0 0.75rem;
+    }
+
+    /* Alert styling */
+    .alert-info {
+        background-color: var(--primary-light);
+        border-color: var(--primary-color);
+        color: var(--text-dark);
+        border-radius: 1rem;
+    }
+
+    /* Dropdown styling */
+    .dropdown-item:hover {
+        background-color: var(--hover-yellow);
+        color: var(--text-dark);
+    }
+
+    .dropdown-item:active {
+        background-color: var(--secondary-light);
+        color: var(--text-light);
+    }
+
+    /* Update button classes in the HTML */
+    .btn-primary {
+        background-color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+        color: var(--text-dark) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-primary:hover {
+        background-color: var(--primary-light) !important;
+        border-color: var(--primary-light) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-secondary {
+        background-color: var(--secondary-color) !important;
+        border-color: var(--secondary-color) !important;
+        color: var(--text-light) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-secondary:hover {
+        background-color: var(--secondary-light) !important;
+        border-color: var(--secondary-light) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-success {
+        background-color: var(--secondary-color) !important;
+        border-color: var(--secondary-color) !important;
+        color: var(--primary-color) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-success:hover {
+        background-color: var(--secondary-light) !important;
+        border-color: var(--secondary-light) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-info {
+        background-color: var(--primary-light) !important;
+        border-color: var(--primary-light) !important;
+        color: var(--text-dark) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-info:hover {
+        background-color: var(--hover-yellow) !important;
+        border-color: var(--hover-yellow) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-danger {
+        background-color: var(--secondary-color) !important;
+        border-color: var(--secondary-color) !important;
+        color: var(--text-light) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-danger:hover {
+        background-color: var(--secondary-light) !important;
+        border-color: var(--secondary-light) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-outline-secondary {
+        color: var(--secondary-color) !important;
+        border-color: var(--border-color) !important;
+        background-color: transparent !important;
+    }
+
+    .btn-outline-secondary:hover, 
+    .btn-outline-secondary.active {
+        color: var(--text-dark) !important;
+        background-color: var(--background-light) !important;
+        border-color: var(--secondary-light) !important;
+    }
+
+    /* Responsive Styles */
+    @@media (max-width: 767px) {
+        .input-group {
+            min-width: 100%;
+        }
+        
+        .btn {
+            white-space: normal;
+            height: auto;
+            min-height: 38px;
+        }
+    }
+
+    @@media (min-width: 768px) {
+        .input-group {
+            width: 300px;
+        }
+        
+        .btn {
+            white-space: nowrap;
+        }
+    }
+
+    @@media (min-width: 992px) {
+        .d-flex.flex-column.flex-sm-row.gap-2 {
+            flex-wrap: nowrap;
+        }
+    }
+
+    /* Modal Responsive Styles */
+    .modal-dialog {
+        max-width: 95%;
+        margin: 1.75rem auto;
+    }
+
+    @@media (min-width: 576px) {
+        .modal-dialog {
+            max-width: 500px;
+        }
+    }
+
+    @@media (min-width: 992px) {
+        .modal-dialog.modal-lg {
+            max-width: 800px;
+        }
+    }
+
+    /* Table Responsive Styles */
+    .table-responsive {
+        margin: 0;
+        padding: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .table th, .table td {
+            font-size: 0.875rem;
+            padding: 0.5rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* Button Responsive Styles */
+    .dropdown-menu {
+        width: 100%;
+        min-width: 200px;
+        border-radius: 1rem;
+        padding: 0.5rem;
+    }
+
+    @@media (max-width: 576px) {
+        .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .btn-group {
+            flex-direction: column;
+        }
+
+        .dropdown-menu {
+            position: fixed;
+            top: auto;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: 0;
+            padding: 1rem;
+            border-radius: 1.5rem 1.5rem 0 0;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    }
+
+    /* Card Responsive Styles */
+    .card {
+        height: 100%;
+    }
+
+    @@media (max-width: 576px) {
+        .user-details {
+            font-size: 0.8rem;
+        }
+
+        .card-title {
+            font-size: 1rem;
+        }
+
+        .card .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+    }
+
+    /* Sorting Buttons Styles */
+    .sorting-buttons {
+        width: 100%;
+    }
+
+    .sorting-buttons .btn {
+        flex: 1;
+        min-width: fit-content;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.375rem 0.75rem;
+    }
+
+    @@media (max-width: 768px) {
+        .sorting-buttons {
+            flex-direction: column;
+        }
+
+        .sorting-buttons .btn {
+            width: 100%;
+            margin-right: 0;
+        }
+    }
+
+    @@media (min-width: 769px) {
+        .sorting-buttons .btn {
+            flex: 0 1 auto;
+        }
+    }
+</style>
+
+@code 
+{
+    private HubConnection? hubConnection;
+
+    private List<UserDto> users;
+    private bool loading = true;
+    private bool showBillsDialog = false;
+    private UserDto selectedUser;
+    private bool loadingUserBills = false;
+    private List<BillingDto>? userBills;
+    private bool showSetPriceDialog = false;
+    private CubicPriceModel cubicPriceModel = new();
+    private bool showWaterBillingDialog = false;
+    private WaterBillingModel waterBillingModel = new();
+    private bool showOtherBillingDialog = false;
+    private OtherBillingModel otherBillingModel = new();
+    private BillType selectedBillType;
+    private bool showMarkAsPaidDialog = false;
+    private string orNumber = "";
+    private BillingDto selectedBill;
+    private string searchTerm = "";
+    private string sortField = "Username";
+    private bool sortAscending = true;
+    private List<UserDto> filteredUsers => GetFilteredAndSortedUsers();
+    private bool showMonthlyPriceDialog = false;
+    private MonthlyPriceModel monthlyPriceModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await AccountService.GetAllUsersAsync();
+            if (response.IsSuccess && response.Data != null)
+            {
+                users = response.Data;
+            }
+            else
+            {
+                await swal.FireAsync("Error", "Failed to load users", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An error occurred while loading users", SweetAlertIcon.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string GetPhoneNumber(UserDto user)
+    {
+        return user.PhoneNumber ?? "Not provided";
+    }
+
+    private string GetStatusColor(UserDto user)
+    {
+        return user.IsActive ? "#28a745" : "#dc3545";
+    }
+
+    private string GetStatusText(UserDto user)
+    {
+        return user.IsActive ? "Active" : "Inactive";
+    }
+
+    private async Task ShowBillsDialog(UserDto user)
+    {
+        selectedUser = user;
+        showBillsDialog = true;
+        await LoadUserBills(user.Id.ToString());
+    }
+
+    private void CloseBillsDialog()
+    {
+        showBillsDialog = false;
+        selectedUser = null;
+        userBills = null;
+    }
+
+    private async Task LoadUserBills(string userId)
+    {
+        try
+        {
+            loadingUserBills = true;
+            var response = await BillingService.GetUserBillsAsync(userId);
+            if (response.IsSuccess && response.Data != null)
+            {
+                userBills = response.Data;
+            }
+            else
+            {
+                await swal.FireAsync("Error", response.Message ?? "Failed to load bills", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An error occurred while loading bills", SweetAlertIcon.Error);
+        }
+        finally
+        {
+            loadingUserBills = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetBillStatusClass(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "paid" => "bg-success",
+            "pending" => "bg-warning",
+            "overdue" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetBillTypeBadgeClass(string billType)
+    {
+        return billType?.ToLower() switch
+        {
+            "water" => "bg-info",
+            "necessities" => "bg-primary",
+            "emergency" => "bg-danger",
+            "maintenance" => "bg-warning",
+            "monthly" => "bg-success",
+            "other" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void ShowMarkAsPaidDialog(BillingDto bill)
+    {
+        selectedBill = bill;
+        orNumber = "";
+        showMarkAsPaidDialog = true;
+        StateHasChanged();
+    }
+
+    private void CloseMarkAsPaidDialog()
+    {
+        showMarkAsPaidDialog = false;
+        selectedBill = null;
+        orNumber = "";
+        StateHasChanged();
+    }
+
+    private async Task HandleMarkAsPaid()
+    {
+        if (string.IsNullOrWhiteSpace(orNumber))
+        {
+            await swal.FireAsync("Error", "Please enter an OR number", SweetAlertIcon.Error);
+            return;
+        }
+
+        try
+        {
+            var response = await BillingService.MarkBillAsPaidAsync(selectedBill.Id, orNumber);
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync("Success", "Bill has been marked as paid", SweetAlertIcon.Success);
+                CloseMarkAsPaidDialog();
+                if (selectedUser != null)
+                {
+                    await LoadUserBills(selectedUser.Id.ToString());
+                }
+            }
+            else
+            {
+                await swal.FireAsync("Error", response.Message ?? "Failed to mark bill as paid", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An error occurred while marking the bill as paid", SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task DeleteAllBills()
+    {
+        try
+        {
+            var result = await swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Are you sure?",
+                Text = "This will delete all bills for this user. This action cannot be undone!",
+                Icon = SweetAlertIcon.Warning,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, delete all",
+                CancelButtonText = "Cancel"
+            });
+
+            if (result.IsConfirmed && selectedUser != null)
+            {
+                var response = await BillingService.DeleteAllBillsAsync(selectedUser.Id.ToString());
+                if (response.IsSuccess)
+                {
+                    await swal.FireAsync("Success", "All bills have been deleted successfully", SweetAlertIcon.Success);
+                    await LoadUserBills(selectedUser.Id.ToString());
+                }
+                else
+                {
+                    await swal.FireAsync("Error", response.Message ?? "Failed to delete bills", SweetAlertIcon.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An error occurred while deleting the bills", SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task DownloadBills()
+    {
+        try
+        {
+            if (selectedUser == null)
+            {
+                await swal.FireAsync("Error", "No user selected", SweetAlertIcon.Error);
+                return;
+            }
+
+            var result = await swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Download Bills?",
+                Text = "This will download all bills for this user in a ZIP file. Continue?",
+                Icon = SweetAlertIcon.Question,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, download",
+                CancelButtonText = "Cancel"
+            });
+
+            if (result.IsConfirmed)
+            {
+                var fileBytes = await BillingService.DownloadBillsAsync(selectedUser.Id.ToString());
+                var fileName = $"{selectedUser.Username}_bills_{DateTime.Now:yyyyMMdd}.zip";
+                
+                await JSRuntime.InvokeVoidAsync("downloadFileFromStream", 
+                    Convert.ToBase64String(fileBytes), 
+                    "application/zip", 
+                    fileName);
+                
+                await swal.FireAsync("Success", "Bills downloaded successfully", SweetAlertIcon.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", $"An error occurred while downloading the bills: {ex.Message}", SweetAlertIcon.Error);
+        }
+    }
+
+    public class CubicPriceModel
+    {
+        public string UserId { get; set; }
+        public decimal PricePerCubicMeter { get; set; }
+    }
+
+    public class WaterBillingModel
+    {
+        [Required(ErrorMessage = "User ID is required")]
+        public string UserId { get; set; }
+        
+        [Required(ErrorMessage = "Cubic meter reading is required")]
+        [Range(0, double.MaxValue, ErrorMessage = "Cubic meter reading must be positive")]
+        public decimal CubicMeterUsed { get; set; }
+
+        [Required(ErrorMessage = "Due date is required")]
+        [DataType(DataType.Date)]
+        [FutureDate(ErrorMessage = "Due date must be in the future")]
+        public DateTime DueDate { get; set; }
+    }
+
+    public class FutureDateAttribute : ValidationAttribute
+    {
+        public override bool IsValid(object value)
+        {
+            if (value is DateTime date)
+            {
+                return date.Date > DateTime.Now.Date;
+            }
+            return false;
+        }
+    }
+
+    public enum BillType
+    {
+        Necessities,
+        Emergency,
+        Maintenance,
+        Monthly,
+        Other
+    }
+
+    public class OtherBillingModel
+    {
+        [Required(ErrorMessage = "User ID is required")]
+        public string UserId { get; set; }
+
+        [Required(ErrorMessage = "Amount is required")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
+        public decimal Amount { get; set; }
+
+        [Required(ErrorMessage = "Description is required")]
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
+        public string Description { get; set; }
+
+        [Required(ErrorMessage = "Due date is required")]
+        [DataType(DataType.Date)]
+        [FutureDate(ErrorMessage = "Due date must be in the future")]
+        public DateTime DueDate { get; set; }
+
+        public BillType BillType { get; set; }
+    }
+
+    public class MonthlyPriceModel
+    {
+        [Required(ErrorMessage = "Monthly price is required")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Monthly price must be greater than 0")]
+        public decimal MonthlyPrice { get; set; }
+    }
+
+    private List<UserDto> GetFilteredAndSortedUsers()
+    {
+        if (users == null) return new List<UserDto>();
+
+        var query = users.AsEnumerable();
+
+        // Filter to show only Client role users
+        query = query.Where(u => u.Role.Equals("Client", StringComparison.OrdinalIgnoreCase));
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var search = searchTerm.Trim().ToLower();
+            query = query.Where(u => 
+                u.Username.ToLower().Contains(search) ||
+                u.Email.ToLower().Contains(search) ||
+                (u.PhoneNumber?.ToLower().Contains(search) ?? false)
+            );
+        }
+
+        // Apply sorting
+        query = sortField switch
+        {
+            "Username" => sortAscending 
+                ? query.OrderBy(u => u.Username) 
+                : query.OrderByDescending(u => u.Username),
+            "Email" => sortAscending 
+                ? query.OrderBy(u => u.Email) 
+                : query.OrderByDescending(u => u.Email),
+            "CreatedAt" => sortAscending 
+                ? query.OrderBy(u => u.CreatedAt) 
+                : query.OrderByDescending(u => u.CreatedAt),
+            _ => query.OrderBy(u => u.Username)
+        };
+
+        return query.ToList();
+    }
+
+    private void HandleSearch()
+    {
+        StateHasChanged();
+    }
+
+    private void ClearSearch()
+    {
+        searchTerm = "";
+        StateHasChanged();
+    }
+
+    private void SortUsers(string field)
+    {
+        if (sortField == field)
+        {
+            sortAscending = !sortAscending;
+        }
+        else
+        {
+            sortField = field;
+            sortAscending = true;
+        }
+        StateHasChanged();
+    }
+
+    private void ShowGlobalSetPriceDialog()
+    {
+        selectedUser = null;
+        cubicPriceModel = new CubicPriceModel();
+        showSetPriceDialog = true;
+        StateHasChanged();
+    }
+
+    private void CloseSetPriceDialog()
+    {
+        showSetPriceDialog = false;
+        selectedUser = null;
+        cubicPriceModel = new CubicPriceModel();
+        StateHasChanged();
+    }
+
+    private async Task HandleSetPriceSubmit()
+    {
+        try
+        {
+            if (cubicPriceModel.PricePerCubicMeter <= 0)
+            {
+                await swal.FireAsync("Error", "Price per cubic meter must be greater than 0", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Get all users and set the price for each one
+            var response = await AccountService.GetAllUsersAsync();
+            if (!response.IsSuccess || response.Data == null)
+            {
+                await swal.FireAsync("Error", "Failed to get users list", SweetAlertIcon.Error);
+                return;
+            }
+
+            var successCount = 0;
+            var failCount = 0;
+
+            foreach (var user in response.Data)
+            {
+                var priceResponse = await BillingService.SetCubicMeterPriceAsync(user.Id.ToString(), cubicPriceModel.PricePerCubicMeter);
+                if (priceResponse.IsSuccess)
+                    successCount++;
+                else
+                    failCount++;
+            }
+
+            if (failCount == 0)
+            {
+                await swal.FireAsync("Success", 
+                    $"Global cubic meter price has been set successfully for {successCount} users\n" +
+                    $"Price per Cubic Meter: ₱{cubicPriceModel.PricePerCubicMeter:N2}", 
+                    SweetAlertIcon.Success);
+            }
+            else
+            {
+                await swal.FireAsync("Warning", 
+                    $"Price set for {successCount} users, but failed for {failCount} users\n" +
+                    $"Price per Cubic Meter: ₱{cubicPriceModel.PricePerCubicMeter:N2}", 
+                    SweetAlertIcon.Warning);
+            }
+            
+            CloseSetPriceDialog();
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An unexpected error occurred while setting the cubic meter price", SweetAlertIcon.Error);
+        }
+    }
+
+    private void ShowWaterBillingDialog(UserDto user)
+    {
+        selectedUser = user;
+        waterBillingModel = new WaterBillingModel
+        {
+            UserId = user.Id.ToString(),
+            CubicMeterUsed = 0,
+            DueDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month)) // Set to last day of current month
+        };
+        showWaterBillingDialog = true;
+        StateHasChanged();
+    }
+
+    private void CloseWaterBillingDialog()
+    {
+        showWaterBillingDialog = false;
+        selectedUser = null;
+        waterBillingModel = new WaterBillingModel();
+        StateHasChanged();
+    }
+
+    private async Task HandleWaterBillingSubmit()
+    {
+        try
+        {
+            if (waterBillingModel.CubicMeterUsed < 0)
+            {
+                await swal.FireAsync("Error", "Cubic meter reading cannot be negative", SweetAlertIcon.Error);
+                return;
+            }
+
+            if (waterBillingModel.DueDate <= DateTime.Now)
+            {
+                await swal.FireAsync("Error", "Due date must be in the future", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Call the service to create the water bill
+            var response = await BillingService.SetCubicNumberAsync(
+                waterBillingModel.UserId, 
+                waterBillingModel.CubicMeterUsed,
+                waterBillingModel.DueDate);
+
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync("Success", response.Message, SweetAlertIcon.Success);
+                CloseWaterBillingDialog();
+                if (selectedUser != null)
+                {
+                    await LoadUserBills(selectedUser.Id.ToString());
+                }
+            }
+            else
+            {
+                await swal.FireAsync("Error", response.Message ?? "Failed to create water bill", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An unexpected error occurred while creating the water bill", SweetAlertIcon.Error);
+        }
+    }
+
+    private void ShowOtherBillingDialog(UserDto user, BillType billType)
+    {
+        selectedUser = user;
+        selectedBillType = billType;
+
+        // Set default due date based on bill type
+        DateTime dueDate = billType == BillType.Monthly
+            ? new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month))
+            : DateTime.Now.AddDays(30);
+
+        otherBillingModel = new OtherBillingModel
+        {
+            UserId = user.Id.ToString(),
+            Amount = 0,
+            Description = billType == BillType.Monthly ? "Monthly Payment" : "",
+            DueDate = dueDate,
+            BillType = billType
+        };
+        showOtherBillingDialog = true;
+        StateHasChanged();
+    }
+
+    private void CloseOtherBillingDialog()
+    {
+        showOtherBillingDialog = false;
+        selectedUser = null;
+        otherBillingModel = new OtherBillingModel();
+        StateHasChanged();
+    }
+
+    private async Task HandleOtherBillingSubmit()
+    {
+        try
+        {
+            if (otherBillingModel.Amount <= 0)
+            {
+                await swal.FireAsync("Error", "Amount must be greater than 0", SweetAlertIcon.Error);
+                return;
+            }
+
+            if (otherBillingModel.DueDate <= DateTime.Now)
+            {
+                await swal.FireAsync("Error", "Due date must be in the future", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Create the bill using AddBillAsync
+            var billDto = new BillingDto
+            {
+                UserId = otherBillingModel.UserId,
+                UserName = selectedUser.Username,
+                Amount = otherBillingModel.Amount,
+                Description = otherBillingModel.Description,
+                DueDate = otherBillingModel.DueDate,
+                BillType = otherBillingModel.BillType.ToString(),
+                BillDate = DateTime.Now
+            };
+
+            var response = await BillingService.AddBillAsync(billDto);
+
+            if (response.IsSuccess)
+            {
+                await swal.FireAsync("Success", "Bill created successfully", SweetAlertIcon.Success);
+                CloseOtherBillingDialog();
+                if (selectedUser != null)
+                {
+                    await LoadUserBills(selectedUser.Id.ToString());
+                }
+            }
+            else
+            {
+                await swal.FireAsync("Error", response.Message ?? "Failed to create bill", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An unexpected error occurred while creating the bill", SweetAlertIcon.Error);
+        }
+    }
+
+    private void ShowGlobalMonthlyPriceDialog()
+    {
+        monthlyPriceModel = new MonthlyPriceModel();
+        showMonthlyPriceDialog = true;
+        StateHasChanged();
+    }
+
+    private void CloseMonthlyPriceDialog()
+    {
+        showMonthlyPriceDialog = false;
+        monthlyPriceModel = new MonthlyPriceModel();
+        StateHasChanged();
+    }
+
+    private async Task HandleMonthlyPriceSubmit()
+    {
+        try
+        {
+            if (monthlyPriceModel.MonthlyPrice <= 0)
+            {
+                await swal.FireAsync("Error", "Monthly price must be greater than 0", SweetAlertIcon.Error);
+                return;
+            }
+
+            // Get all users and set the monthly price for each one
+            var response = await AccountService.GetAllUsersAsync();
+            if (!response.IsSuccess || response.Data == null)
+            {
+                await swal.FireAsync("Error", "Failed to get users list", SweetAlertIcon.Error);
+                return;
+            }
+
+            var successCount = 0;
+            var failCount = 0;
+
+            foreach (var user in response.Data)
+            {
+                var priceResponse = await BillingService.SetMonthlyPriceAsync(user.Id.ToString(), monthlyPriceModel.MonthlyPrice);
+                if (priceResponse.IsSuccess)
+                    successCount++;
+                else
+                    failCount++;
+            }
+
+            if (failCount == 0)
+            {
+                await swal.FireAsync("Success", 
+                    $"Global monthly price has been set successfully for {successCount} users\n" +
+                    $"Monthly Price: ₱{monthlyPriceModel.MonthlyPrice:N2}", 
+                    SweetAlertIcon.Success);
+            }
+            else
+            {
+                await swal.FireAsync("Warning", 
+                    $"Monthly price set for {successCount} users, but failed for {failCount} users\n" +
+                    $"Monthly Price: ₱{monthlyPriceModel.MonthlyPrice:N2}", 
+                    SweetAlertIcon.Warning);
+            }
+            
+            CloseMonthlyPriceDialog();
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An unexpected error occurred while setting the monthly price", SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task DeleteBill(BillingDto bill)
+    {
+        try
+        {
+            var result = await swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Are you sure?",
+                Text = "This will delete this bill. This action cannot be undone!",
+                Icon = SweetAlertIcon.Warning,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, delete it",
+                CancelButtonText = "Cancel"
+            });
+
+            if (result.IsConfirmed)
+            {
+                var response = await BillingService.DeleteBillAsync(bill.Id);
+                if (response.IsSuccess)
+                {
+                    await swal.FireAsync("Success", "Bill has been deleted successfully", SweetAlertIcon.Success);
+                    if (selectedUser != null)
+                    {
+                        await LoadUserBills(selectedUser.Id.ToString());
+                    }
+                }
+                else
+                {
+                    await swal.FireAsync("Error", response.Message ?? "Failed to delete bill", SweetAlertIcon.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", "An error occurred while deleting the bill", SweetAlertIcon.Error);
+        }
+    }
+}
