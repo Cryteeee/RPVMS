@@ -27,9 +27,14 @@ try
 
     // Configure HttpClient with custom handler
     builder.Services.AddScoped<CustomHttpHandler>();
+    
+    // Use the current base address for the API endpoint
+    var baseAddress = builder.HostEnvironment.BaseAddress;
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
-        client.BaseAddress = new Uri("https://localhost:7052/");
+        client.BaseAddress = new Uri(builder.HostEnvironment.IsDevelopment() 
+            ? "https://localhost:7052/"
+            : baseAddress);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();

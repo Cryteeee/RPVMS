@@ -35,7 +35,10 @@ jobs:
         run: dotnet build -c Release --no-restore
         
       - name: Publish Client Project
-        run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o release
+        run: dotnet publish Client/BlazorApp1.Client.csproj -c Release -o release --nologo
+        
+      - name: Copy wwwroot to release
+        run: cp -r Client/wwwroot/* release/wwwroot/
         
       - name: Change base-tag in index.html
         run: sed -i 's/<base href="\/" \/>/<base href="\/RPVMS\/" \/>/g' release/wwwroot/index.html
