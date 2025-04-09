@@ -27,6 +27,7 @@ namespace BlazorApp1.Client.Services
         
         // New User Management Methods
         Task<BlazorApp1.Shared.Response<List<UserDto>>> GetAllUsersAsync();
+        Task<BlazorApp1.Shared.Response<List<UserDto>>> GetClientProfilesAsync();
         Task<BlazorApp1.Shared.Response<UserDto>> GetUserByIdAsync(int id);
         Task<BlazorApp1.Shared.Response> DeleteUserAsync(int id);
         Task<BlazorApp1.Shared.Response<bool>> UpdateUserRoleAsync(int userId, string newRole);

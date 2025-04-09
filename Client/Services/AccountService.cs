@@ -603,8 +603,8 @@ namespace BlazorApp1.Client.Services
                 _logger?.LogInformation("Creating HTTP client for GetAllUsersAsync");
                 var httpClient = await CreateClientAsync();
                 
-                _logger?.LogInformation("Sending request to api/UserAccount/GetClientProfiles");
-                var response = await httpClient.GetAsync("api/UserAccount/GetClientProfiles");
+                _logger?.LogInformation("Sending request to api/UserAccount/GetAll");
+                var response = await httpClient.GetAsync("api/UserAccount/GetAll");
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -900,6 +900,42 @@ namespace BlazorApp1.Client.Services
                 {
                     IsSuccess = false,
                     Message = $"An unexpected error occurred: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<BlazorApp1.Shared.Response<List<UserDto>>> GetClientProfilesAsync()
+        {
+            try
+            {
+                _logger?.LogInformation("Creating HTTP client for GetClientProfilesAsync");
+                var httpClient = await CreateClientAsync();
+                
+                _logger?.LogInformation("Sending request to api/UserAccount/GetClientProfiles");
+                var response = await httpClient.GetAsync("api/UserAccount/GetClientProfiles");
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger?.LogWarning("Failed to get client profiles. Status code: {StatusCode}, Error: {Error}", 
+                        response.StatusCode, errorContent);
+                    return new BlazorApp1.Shared.Response<List<UserDto>>
+                    {
+                        IsSuccess = false,
+                        Message = $"Failed to retrieve client profiles. Status code: {response.StatusCode}"
+                    };
+                }
+
+                var result = await response.Content.ReadFromJsonAsync<BlazorApp1.Shared.Response<List<UserDto>>>();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error in GetClientProfilesAsync");
+                return new BlazorApp1.Shared.Response<List<UserDto>>
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
                 };
             }
         }

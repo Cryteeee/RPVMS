@@ -210,7 +210,7 @@
         border: 1px solid var(--gray-200);
         border-radius: 8px;
         font-size: 1rem;
-        width: 200px;
+        width:100%;
         transition: all 0.3s ease;
     }
 
@@ -690,6 +690,42 @@
             scroll-behavior: auto !important;
         }
     }
+
+    .chart-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        margin-top: 2rem;
+    }
+
+    .chart-wrapper {
+        position: relative;
+        margin: auto;
+        width: 100%;
+    }
+
+    .chart-legend {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+    }
+
+    .form-select {
+        min-width: 150px;
+    }
 </style>
 
 <div class="filter-container">
@@ -737,7 +773,7 @@
         </div>
     </div>
 
-    <div class="card requests-card">
+    <div class="card requests-card" @onclick="@(() => ShowPendingBillsModal("water", _selectedYear, _viewType, _selectedMonth))">
         <div class="card-header">
             <h3 class="card-title">Total Price Water Pending Bills</h3>
             <i class="bi bi-water card-icon"></i>
@@ -759,7 +795,7 @@
         </div>
     </div>
 
-    <div class="card archived-card">
+    <div class="card archived-card" @onclick="@(() => ShowPendingBillsModal("other", _selectedYear, _viewType, _selectedMonth))">
         <div class="card-header">
             <h3 class="card-title">Others Pending Bills</h3>
             <i class="bi bi-hourglass-split card-icon"></i>
@@ -782,7 +818,7 @@
             <p class="card-subtitle">Total paid other bills amount</p>
         </div>
     </div>
-    <div class="card all-pending-bills-card">
+    <div class="card all-pending-bills-card" @onclick="@(() => ShowPendingBillsModal("all", _selectedYear, _viewType, _selectedMonth))">
         <div class="card-header">
             <h3 class="card-title">All Pending Bills</h3>
             <i class="bi bi-clock-history card-icon"></i>
@@ -804,42 +840,43 @@
     </div>
 </div>
 
-<div class="download-button-container">
-    <button class="btn btn-primary" @onclick="DownloadAllBills">
-        <i class="bi bi-download me-2"></i>Download All Bills
-    </button>
-</div>
-
-<div class="chart-container">
-    <div class="chart-header">
-        <h3 class="chart-title">Bills Trend Analysis</h3>
-        <div class="d-flex gap-2">
-            <select class="filter-select" @onchange="OnChartTypeChanged">
-                <option value="line">Line Chart</option>
-                <option value="bar">Bar Chart</option>
-            </select>
-            <select class="filter-select" @onchange="OnChartPeriodChanged">
-                <option value="6">Last 6 Months</option>
-                <option value="12">Last 12 Months</option>
-                <option value="24">Last 24 Months</option>
-            </select>
+<div class="card chart-card">
+    <div class="card-body">
+        <div class="chart-header d-flex justify-content-between align-items-center mb-4">
+            <h3 class="card-title mb-0">Bills Trend Analysis</h3>
+            <div class="d-flex gap-3 align-items-center">
+                <div class="d-flex gap-2">
+                    <select class="form-select" @onchange="OnChartTypeChanged">
+                        <option value="line">Line Chart</option>
+                        <option value="bar">Bar Chart</option>
+                    </select>
+                    <select class="form-select" @onchange="OnChartPeriodChanged">
+                        <option value="6">Last 6 Months</option>
+                        <option value="12">Last 12 Months</option>
+                        <option value="24">Last 24 Months</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" @onclick="DownloadAllBills">
+                    <i class="bi bi-download me-2"></i>Download All Bills
+                </button>
+            </div>
         </div>
-    </div>
-    <div class="chart-wrapper">
-        <canvas id="billsTrendChart"></canvas>
-    </div>
-    <div class="chart-legend">
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #4299E1;"></div>
-            <span>Water Bills</span>
+        <div class="chart-wrapper" style="height: 400px;">
+            <canvas id="billsTrendChart"></canvas>
         </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #48BB78;"></div>
-            <span>Other Bills</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #ECC94B;"></div>
-            <span>Total Bills</span>
+        <div class="chart-legend mt-4">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4299E1;"></div>
+                <span>Water Bills</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #48BB78;"></div>
+                <span>Other Bills</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ECC94B;"></div>
+                <span>Total Bills</span>
+            </div>
         </div>
     </div>
 </div>
@@ -918,6 +955,68 @@
     }
 </div>
 
+<!-- Pending Bills Modal -->
+@if (_showPendingBillsModal)
+{
+    <div class="modal show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@_modalTitle</h5>
+                    <button type="button" class="btn-close" @onclick="ClosePendingBillsModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (_pendingBills == null || !_pendingBills.Any())
+                    {
+                        <div class="alert alert-info">No pending bills found.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Client Name</th>
+                                        <th>Bill Type</th>
+                                        <th>Amount</th>
+                                        <th>Due Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var bill in _pendingBills)
+                                    {
+                                        <tr>
+                                            <td>@bill.ClientName</td>
+                                            <td>@bill.BillType</td>
+                                            <td>₱@bill.Amount.ToString("N2")</td>
+                                            <td>@bill.DueDate.ToString("MMM dd, yyyy")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-success" @onclick="() => MarkBillAsPaid(bill.Id)">
+                                                    <i class="bi bi-check-circle"></i> Mark as Paid
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (_pendingBills != null && _pendingBills.Any())
+                    {
+                        <button class="btn btn-primary" @onclick="MarkAllBillsAsPaid">
+                            <i class="bi bi-check-all"></i> Mark All as Paid
+                        </button>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="ClosePendingBillsModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private int _clientCount = 0;
     private decimal _totalPendingWaterBills = 0;
@@ -942,6 +1041,21 @@
     private int _chartMonths = 6; // Default to 6 months
     private bool _chartInitialized = false;
     private string _chartType = "line";
+
+    // Add these new properties
+    private bool _showPendingBillsModal = false;
+    private string _modalTitle = "";
+    private List<PendingBillDto> _pendingBills = new();
+    private string _currentBillType = "";
+
+    private class PendingBillDto
+    {
+        public int Id { get; set; }
+        public string ClientName { get; set; }
+        public string BillType { get; set; }
+        public decimal Amount { get; set; }
+        public DateTime DueDate { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -1080,10 +1194,13 @@
             // Fetch total all paid bills amount
             var allPaidBillsResponse = await Http.GetFromJsonAsync<decimal>($"api/Admin/GetTotalAllPaidBills?{queryString}");
             _totalAllPaidBills = allPaidBillsResponse;
+
+            StateHasChanged(); // Ensure UI updates with new values
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading dashboard data: {Message}", ex.Message);
+            await swal.FireAsync("Error", $"Failed to refresh dashboard data: {ex.Message}", SweetAlertIcon.Error);
         }
     }
 
@@ -1143,6 +1260,7 @@
     {
         if (firstRender)
         {
+            await JSRuntime.InvokeVoidAsync("initializeChartJs");
             await InitializeChartAsync();
         }
     }
@@ -1151,9 +1269,16 @@
     {
         if (_chartInitialized) return;
 
-        var chartData = await GetChartData(_chartMonths);
-        await RenderChartAsync(chartData);
-        _chartInitialized = true;
+        try
+        {
+            var chartData = await GetChartData(_chartMonths);
+            await RenderChartAsync(chartData);
+            _chartInitialized = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing chart: {Message}", ex.Message);
+        }
     }
 
     private async Task<ChartData> GetChartData(int months)
@@ -1197,72 +1322,89 @@
 
     private async Task RenderChartAsync(ChartData data)
     {
-        var chartConfig = new
+        try
         {
-            type = _chartType,
-            data = new
+            var chartConfig = new
             {
-                labels = data.Labels,
-                datasets = new[]
+                type = _chartType,
+                data = new
                 {
-                    new
+                    labels = data.Labels,
+                    datasets = new[]
                     {
-                        label = "Water Bills",
-                        data = data.WaterBillsData,
-                        borderColor = "#4299E1",
-                        backgroundColor = _chartType == "line" ? "#4299E120" : "#4299E1",
-                        fill = _chartType == "line",
-                        tension = 0.4
-                    },
-                    new
-                    {
-                        label = "Other Bills",
-                        data = data.OtherBillsData,
-                        borderColor = "#48BB78",
-                        backgroundColor = _chartType == "line" ? "#48BB7820" : "#48BB78",
-                        fill = _chartType == "line",
-                        tension = 0.4
-                    },
-                    new
-                    {
-                        label = "Total Bills",
-                        data = data.TotalBillsData,
-                        borderColor = "#ECC94B",
-                        backgroundColor = _chartType == "line" ? "#ECC94B20" : "#ECC94B",
-                        fill = _chartType == "line",
-                        tension = 0.4
-                    }
-                }
-            },
-            options = new
-            {
-                responsive = true,
-                maintainAspectRatio = false,
-                scales = new
-                {
-                    y = new
-                    {
-                        beginAtZero = true,
-                        ticks = new
+                        new
                         {
-                            callback = "value => '₱' + value.toLocaleString()"
+                            label = "Water Bills",
+                            data = data.WaterBillsData,
+                            borderColor = "#4299E1",
+                            backgroundColor = _chartType == "line" ? "#4299E120" : "#4299E1",
+                            fill = _chartType == "line",
+                            tension = 0.4
+                        },
+                        new
+                        {
+                            label = "Other Bills",
+                            data = data.OtherBillsData,
+                            borderColor = "#48BB78",
+                            backgroundColor = _chartType == "line" ? "#48BB7820" : "#48BB78",
+                            fill = _chartType == "line",
+                            tension = 0.4
+                        },
+                        new
+                        {
+                            label = "Total Bills",
+                            data = data.TotalBillsData,
+                            borderColor = "#ECC94B",
+                            backgroundColor = _chartType == "line" ? "#ECC94B20" : "#ECC94B",
+                            fill = _chartType == "line",
+                            tension = 0.4
                         }
                     }
                 },
-                plugins = new
+                options = new
                 {
-                    tooltip = new
+                    responsive = true,
+                    maintainAspectRatio = false,
+                    scales = new
                     {
-                        callbacks = new
+                        y = new
                         {
-                            label = "context => context.dataset.label + ': ₱' + context.raw.toLocaleString()"
+                            beginAtZero = true,
+                            ticks = new
+                            {
+                                callback = "value => '₱' + value.toLocaleString()"
+                            }
+                        }
+                    },
+                    plugins = new
+                    {
+                        legend = new
+                        {
+                            display = true,
+                            position = "bottom",
+                            labels = new
+                            {
+                                usePointStyle = true,
+                                padding = 20
+                            }
+                        },
+                        tooltip = new
+                        {
+                            callbacks = new
+                            {
+                                label = "context => context.dataset.label + ': ₱' + context.raw.toLocaleString()"
+                            }
                         }
                     }
                 }
-            }
-        };
+            };
 
-        await JSRuntime.InvokeVoidAsync("initializeChart", "billsTrendChart", chartConfig);
+            await JSRuntime.InvokeVoidAsync("initializeChart", "billsTrendChart", chartConfig);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error rendering chart: {Message}", ex.Message);
+        }
     }
 
     private async Task OnChartPeriodChanged(ChangeEventArgs e)
@@ -1321,6 +1463,172 @@
         {
             Logger.LogError(ex, "Error downloading all bills");
             await swal.FireAsync("Error", $"An error occurred while downloading the bills: {ex.Message}", SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task ShowPendingBillsModal(string billType, int year, string viewType, int? month)
+    {
+        try
+        {
+            _currentBillType = billType;
+            _modalTitle = billType switch
+            {
+                "water" => "Water Pending Bills",
+                "other" => "Other Pending Bills",
+                "all" => "All Pending Bills",
+                _ => "Pending Bills"
+            };
+
+            var queryParams = new Dictionary<string, string>
+            {
+                { "year", year.ToString() },
+                { "viewType", viewType }
+            };
+
+            if (viewType == "monthly" && month.HasValue)
+            {
+                queryParams.Add("month", month.Value.ToString());
+            }
+
+            var queryString = string.Join("&", queryParams.Select(x => $"{x.Key}={x.Value}"));
+
+            var endpoint = billType switch
+            {
+                "water" => $"api/Admin/GetPendingWaterBills?{queryString}",
+                "other" => $"api/Admin/GetPendingOtherBills?{queryString}",
+                "all" => $"api/Admin/GetAllPendingBills?{queryString}",
+                _ => throw new ArgumentException($"Invalid bill type: {billType}")
+            };
+
+            var response = await Http.GetFromJsonAsync<List<PendingBillDto>>(endpoint);
+            if (response != null)
+            {
+                _pendingBills = response;
+                _showPendingBillsModal = true;
+                StateHasChanged();
+            }
+            else
+            {
+                await swal.FireAsync("Error", "Failed to load pending bills: No data received", SweetAlertIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading pending bills: {Message}", ex.Message);
+            await swal.FireAsync("Error", $"Failed to load pending bills: {ex.Message}", SweetAlertIcon.Error);
+        }
+    }
+
+    private void ClosePendingBillsModal()
+    {
+        _showPendingBillsModal = false;
+        _pendingBills = new();
+        _currentBillType = "";
+        StateHasChanged();
+    }
+
+    private async Task MarkBillAsPaid(int billId)
+    {
+        try
+        {
+            var autoGeneratedOR = $"OR-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}";
+            
+            var result = await swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Mark Bill as Paid",
+                Text = $"Auto-generated OR Number: {autoGeneratedOR}",
+                Icon = SweetAlertIcon.Question,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, mark as paid",
+                CancelButtonText = "Cancel"
+            });
+
+            if (result.IsConfirmed)
+            {
+                var endpoint = $"api/Billing/{billId}/pay";
+                var request = new { ORNumber = autoGeneratedOR };
+                
+                var response = await Http.PutAsJsonAsync(endpoint, request);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    await swal.FireAsync("Success", "Bill marked as paid successfully", SweetAlertIcon.Success);
+                    await LoadDashboardData();
+                    await ShowPendingBillsModal(_currentBillType, _selectedYear, _viewType, _selectedMonth);
+                    await InitializeChartAsync();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    var userFriendlyMessage = "The bill description must be between 5 and 200 characters long.";
+                    await swal.FireAsync("Invalid Input", userFriendlyMessage, SweetAlertIcon.Warning);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await swal.FireAsync("Error", $"An error occurred: {ex.Message}", SweetAlertIcon.Error);
+        }
+    }
+    
+    private async Task MarkAllBillsAsPaid()
+    {
+        try
+        {
+            var result = await swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Mark All Bills as Paid?",
+                Text = "Are you sure you want to mark all bills as paid? This action cannot be undone.",
+                Icon = SweetAlertIcon.Warning,
+                ShowCancelButton = true,
+                ConfirmButtonText = "Yes, mark all as paid",
+                CancelButtonText = "Cancel"
+            });
+
+            if (result.IsConfirmed)
+            {
+                var queryParams = new Dictionary<string, string>
+                {
+                    { "year", _selectedYear.ToString() },
+                    { "viewType", _viewType },
+                    { "billType", _currentBillType },
+                    { "orNumber", $"OR-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}" }
+                };
+
+                if (_viewType == "monthly")
+                {
+                    queryParams.Add("month", _selectedMonth.ToString());
+                }
+
+                var queryString = string.Join("&", queryParams.Select(x => $"{x.Key}={x.Value}"));
+                var endpoint = _currentBillType switch
+                {
+                    "water" => $"api/Admin/MarkAllWaterBillsAsPaid?{queryString}",
+                    "other" => $"api/Admin/MarkAllOtherBillsAsPaid?{queryString}",
+                    "all" => $"api/Admin/MarkAllBillsAsPaid?{queryString}",
+                    _ => throw new ArgumentException($"Invalid bill type: {_currentBillType}")
+                };
+
+                var response = await Http.PostAsJsonAsync(endpoint, new { });
+                if (response.IsSuccessStatusCode)
+                {
+                    await swal.FireAsync("Success", "All bills marked as paid successfully", SweetAlertIcon.Success);
+                    await LoadDashboardData();
+                    ClosePendingBillsModal();
+                    await InitializeChartAsync();
+                    StateHasChanged();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    await swal.FireAsync("Error", $"Failed to mark all bills as paid: {error}", SweetAlertIcon.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error marking all bills as paid: {Message}", ex.Message);
+            await swal.FireAsync("Error", $"An error occurred while marking all bills as paid: {ex.Message}", SweetAlertIcon.Error);
         }
     }
 

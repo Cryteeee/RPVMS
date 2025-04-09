@@ -5,8 +5,10 @@
 @using BlazorApp1.Client.Services
 @using System.Security.Claims
 @using BlazorApp1.Shared.Enums
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using CurrieTechnologies.Razor.SweetAlert2
+@attribute [Authorize(Roles = "SuperAdmin,Admin,User")]
 @inject ISubmissionService SubmissionService
 @inject IContactService ContactService
 @inject ILogger<Archive> Logger
@@ -27,224 +29,221 @@
         </nav>
     </div>
 
-    <AuthorizeView Roles="SuperAdmin,Admin" Context="mainAuth">
-        <Authorized>
-            <div class="content-card">
-                <div class="filters-container">
-                    <div class="filter-group">
-                        <div class="filter-item">
-                            <label for="entriesDropdown">Show entries</label>
-                            <select id="entriesDropdown" class="custom-select" @bind="entriesPerPage">
-                                <option value="5">5 per page</option>
-                                <option value="10">10 per page</option>
-                                <option value="25">25 per page</option>
-                                <option value="50">50 per page</option>
-                            </select>
-                        </div>
-                        <div class="filter-item">
-                            <label for="sortDropdown">Sort by</label>
-                            <select id="sortDropdown" class="custom-select" @bind="sortOrder">
-                                <option value="newest">Newest first</option>
-                                <option value="oldest">Oldest first</option>
-                            </select>
-                        </div>
-                        <div class="filter-item">
-                            <label for="statusDropdown">Status</label>
-                            <select id="statusDropdown" class="custom-select" @bind="filterStatus">
-                                <option value="">All Status</option>
-                                <option value="Resolved">Resolved</option>
-                                <option value="Deleted">Deleted</option>
-                            </select>
-                        </div>
-                    </div>
+    <div class="content-card">
+        <div class="filters-container">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label for="entriesDropdown">Show entries</label>
+                    <select id="entriesDropdown" class="custom-select" @bind="entriesPerPage">
+                        <option value="5">5 per page</option>
+                        <option value="10">10 per page</option>
+                        <option value="25">25 per page</option>
+                        <option value="50">50 per page</option>
+                    </select>
                 </div>
+                <div class="filter-item">
+                    <label for="sortDropdown">Sort by</label>
+                    <select id="sortDropdown" class="custom-select" @bind="sortOrder">
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="statusDropdown">Status</label>
+                    <select id="statusDropdown" class="custom-select" @bind="filterStatus">
+                        <option value="">All Status</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Deleted">Deleted</option>
+                    </select>
+                </div>
+            </div>
+        </div>
 
-                <AuthorizeView Roles="SuperAdmin" Context="superAdminAuth">
-                    <Authorized>
-                        <div class="admin-actions">
-                            <button class="btn-danger" @onclick="DeleteAllDeletedSubmissionsConfirmation">
-                                <i class="fas fa-trash-alt"></i>
-                                Delete All Deleted Submissions
-                            </button>
-                            <button class="btn-warning" @onclick="DeleteAllResolvedSubmissionsConfirmation">
-                                <i class="fas fa-broom"></i>
-                                Clean Up Resolved
-                            </button>
-                        </div>
-                    </Authorized>
-                </AuthorizeView>
+        <AuthorizeView Roles="SuperAdmin">
+            <Authorized>
+                <div class="admin-actions">
+                    <button class="btn-danger" @onclick="DeleteAllDeletedSubmissionsConfirmation">
+                        <i class="fas fa-trash-alt"></i>
+                        Delete All Deleted Submissions
+                    </button>
+                    <button class="btn-warning" @onclick="DeleteAllResolvedSubmissionsConfirmation">
+                        <i class="fas fa-broom"></i>
+                        Clean Up Resolved
+                    </button>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-                @if (isLoading)
-                {
-                    <div class="loading-container">
-                        <div class="loader"></div>
-                        <span>Loading archives...</span>
-                    </div>
-                }
-                else if (FilteredSubmissions.Any())
-                {
-                    <div class="table-responsive">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Title</th>
-                                    <th>Category</th>
-                                    <th>Status</th>
-                                    <th>Date Archived</th>
+        @if (isLoading)
+        {
+            <div class="loading-container">
+                <div class="loader"></div>
+                <span>Loading archives...</span>
+            </div>
+        }
+        else if (FilteredSubmissions.Any())
+        {
+            <div class="table-responsive">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Date Archived</th>
+                            <AuthorizeView Roles="SuperAdmin,Admin">
+                                <Authorized>
                                     <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var submission in FilteredSubmissions.Skip((currentPage - 1) * entriesPerPage).Take(entriesPerPage))
-                                {
-                                    <tr class="table-row">
-                                        <td>@submission.Id</td>
+                                </Authorized>
+                            </AuthorizeView>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var submission in FilteredSubmissions.Skip((currentPage - 1) * entriesPerPage).Take(entriesPerPage))
+                        {
+                            <tr @onclick="() => ViewDetails(submission)" style="cursor: pointer;">
+                                <td>@submission.Id</td>
+                                <td>
+                                    <div class="submission-title">
+                                        <span class="title">@submission.Subject</span>
+                                        <span class="email">@submission.UserEmail</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="category-badge">@submission.Category</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge @GetStatusBadgeClass(submission.Status)">
+                                        @GetStatusDisplay(submission.Status)
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="date-info">
+                                        <span class="date">@submission.LastUpdated.ToString("MMM dd, yyyy")</span>
+                                        <span class="time">@submission.LastUpdated.ToString("HH:mm")</span>
+                                    </div>
+                                </td>
+                                <AuthorizeView Roles="SuperAdmin,Admin">
+                                    <Authorized>
                                         <td>
-                                            <div class="submission-title">
-                                                <span class="title">@submission.Subject</span>
-                                                <span class="email">@submission.UserEmail</span>
-                                            </div>
+                                            <button class="btn-restore" @onclick:stopPropagation="true" @onclick="() => RestoreSubmission(submission.Id)">
+                                                <i class="fas fa-undo"></i>
+                                                Restore
+                                            </button>
                                         </td>
-                                        <td>
-                                            <span class="category-badge">@submission.Category</span>
-                                        </td>
-                                        <td>
-                                            <span class="status-badge @GetStatusBadgeClass(submission.Status)">
-                                                @GetStatusDisplay(submission.Status)
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="date-info">
-                                                <span class="date">@submission.LastUpdated.ToString("MMM dd, yyyy")</span>
-                                                <span class="time">@submission.LastUpdated.ToString("HH:mm")</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="action-btn view" @onclick="() => ViewDetails(submission)" title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="action-btn restore" @onclick="() => RestoreSubmission(submission.Id)" title="Restore">
-                                                    <i class="fas fa-undo"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="pagination-container">
-                        <div class="pagination-info">
-                            Showing <span>@((currentPage - 1) * entriesPerPage + 1)</span> to 
-                            <span>@Math.Min(currentPage * entriesPerPage, FilteredSubmissions.Count())</span> of 
-                            <span>@FilteredSubmissions.Count()</span> entries
-                        </div>
-                        <div class="pagination-controls">
-                            <button class="page-btn" @onclick="() => ChangePage(1)" disabled="@(currentPage == 1)">
-                                <i class="fas fa-angle-double-left"></i>
-                            </button>
-                            <button class="page-btn" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
-                                <i class="fas fa-angle-left"></i>
-                            </button>
-                            
-                            @for (int i = GetStartPage(); i <= GetEndPage(); i++)
-                            {
-                                var pageNumber = i;
-                                <button class="page-btn @(pageNumber == currentPage ? "active" : "")" 
-                                        @onclick="() => ChangePage(pageNumber)">
-                                    @pageNumber
-                                </button>
-                            }
-                            
-                            <button class="page-btn" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage == TotalPages)">
-                                <i class="fas fa-angle-right"></i>
-                            </button>
-                            <button class="page-btn" @onclick="() => ChangePage(TotalPages)" disabled="@(currentPage == TotalPages)">
-                                <i class="fas fa-angle-double-right"></i>
-                            </button>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <div class="empty-state">
-                        <i class="fas fa-archive"></i>
-                        <h3>No Archives Found</h3>
-                        <p>There are no archived submissions to display.</p>
-                    </div>
-                }
+                                    </Authorized>
+                                </AuthorizeView>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
 
-            @if (selectedSubmission != null)
-            {
-                <div class="modal-overlay">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5>Submission Details</h5>
-                                <button class="close-btn" @onclick="CloseModal">
-                                    <i class="fas fa-times"></i>
-                                </button>
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Showing <span>@((currentPage - 1) * entriesPerPage + 1)</span> to 
+                    <span>@Math.Min(currentPage * entriesPerPage, FilteredSubmissions.Count())</span> of 
+                    <span>@FilteredSubmissions.Count()</span> entries
+                </div>
+                <div class="pagination-controls">
+                    <button class="page-btn" @onclick="() => ChangePage(1)" disabled="@(currentPage == 1)">
+                        <i class="fas fa-angle-double-left"></i>
+                    </button>
+                    <button class="page-btn" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
+                        <i class="fas fa-angle-left"></i>
+                    </button>
+                    
+                    @for (int i = GetStartPage(); i <= GetEndPage(); i++)
+                    {
+                        var pageNumber = i;
+                        <button class="page-btn @(pageNumber == currentPage ? "active" : "")" 
+                                @onclick="() => ChangePage(pageNumber)">
+                            @pageNumber
+                        </button>
+                    }
+                    
+                    <button class="page-btn" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage == TotalPages)">
+                        <i class="fas fa-angle-right"></i>
+                    </button>
+                    <button class="page-btn" @onclick="() => ChangePage(TotalPages)" disabled="@(currentPage == TotalPages)">
+                        <i class="fas fa-angle-double-right"></i>
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-archive"></i>
+                <h3>No Archives Found</h3>
+                <p>There are no archived submissions to display.</p>
+            </div>
+        }
+    </div>
+
+    @if (selectedSubmission != null)
+    {
+        <div class="modal-overlay">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5>Submission Details</h5>
+                        <button class="close-btn" @onclick="CloseModal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <label>Title</label>
+                                <p>@selectedSubmission.Subject</p>
                             </div>
-                            <div class="modal-body">
-                                <div class="details-grid">
-                                    <div class="detail-item">
-                                        <label>Title</label>
-                                        <p>@selectedSubmission.Subject</p>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>Category</label>
-                                        <p>@selectedSubmission.Category</p>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>Status</label>
-                                        <span class="status-badge @GetStatusBadgeClass(selectedSubmission.Status)">
-                                            @GetStatusDisplay(selectedSubmission.Status)
-                                        </span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>Priority</label>
-                                        <span class="priority-badge @GetPriorityBadgeClass(selectedSubmission.Priority)">
-                                            @selectedSubmission.Priority
-                                        </span>
-                                    </div>
-                                    <div class="detail-item full-width">
-                                        <label>Description</label>
-                                        <p class="description">@selectedSubmission.Description</p>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>Submitted By</label>
-                                        <p>@selectedSubmission.UserEmail</p>
-                                    </div>
-                                    <div class="detail-item">
-                                        <label>Submission Date</label>
-                                        <p>@selectedSubmission.SubmittedDate.ToString("MMM dd, yyyy HH:mm")</p>
-                                    </div>
-                                </div>
+                            <div class="detail-item">
+                                <label>Category</label>
+                                <p>@selectedSubmission.Category</p>
                             </div>
-                            <div class="modal-footer">
-                                <button class="btn-secondary" @onclick="CloseModal">Close</button>
+                            <div class="detail-item">
+                                <label>Status</label>
+                                <span class="status-badge @GetStatusBadgeClass(selectedSubmission.Status)">
+                                    @GetStatusDisplay(selectedSubmission.Status)
+                                </span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Priority</label>
+                                <span class="priority-badge @GetPriorityBadgeClass(selectedSubmission.Priority)">
+                                    @selectedSubmission.Priority
+                                </span>
+                            </div>
+                            <div class="detail-item full-width">
+                                <label>Description</label>
+                                <p class="description">@selectedSubmission.Description</p>
+                            </div>
+                            <div class="detail-item">
+                                <label>Submitted By</label>
+                                <p>@selectedSubmission.UserEmail</p>
+                            </div>
+                            <div class="detail-item">
+                                <label>Submission Date</label>
+                                <p>@selectedSubmission.SubmittedDate.ToString("MMM dd, yyyy HH:mm")</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" @onclick="CloseModal">Close</button>
+                        <AuthorizeView Roles="SuperAdmin,Admin">
+                            <Authorized>
                                 <button class="btn-restore" @onclick="() => RestoreSubmission(selectedSubmission.Id)">
                                     <i class="fas fa-undo"></i>
                                     Restore
                                 </button>
-                            </div>
-                        </div>
+                            </Authorized>
+                        </AuthorizeView>
                     </div>
                 </div>
-            }
-        </Authorized>
-        <NotAuthorized>
-            <div class="access-denied">
-                <i class="fas fa-lock"></i>
-                <h2>Access Denied</h2>
-                <p>You do not have permission to view this page.</p>
             </div>
-        </NotAuthorized>
-    </AuthorizeView>
+        </div>
+    }
 </div>
 
 <style>

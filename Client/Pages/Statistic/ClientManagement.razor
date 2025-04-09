@@ -20,9 +20,9 @@
 <AuthorizeView Context="mainContext">
     <Authorized>
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
-            <h3 class="mb-0">Client Profiles</h3>
-            <div class="d-flex flex-column flex-sm-row gap-3 w-100 w-md-auto">
-                <div class="input-group flex-grow-0">
+            <h3 class="mb-0"><i class="bi bi-people-fill me-2"></i>Client Profiles</h3>
+            <div class="d-flex flex-column flex-md-row gap-3 w-100 w-md-auto">
+                <div class="input-group search-container">
                     <span class="input-group-text">
                         <i class="bi bi-search"></i>
                     </span>
@@ -35,14 +35,14 @@
                         </button>
                     }
                 </div>
-                <div class="d-flex flex-column flex-sm-row gap-2 flex-shrink-0">
+                <div class="d-flex flex-column flex-sm-row gap-2 button-container">
                     <AuthorizeView Roles="SuperAdmin,Admin" Context="priceContext">
-                        <button class="btn btn-primary" @onclick="ShowGlobalSetPriceDialog">
+                        <button class="btn btn-primary flex-fill animated-button" @onclick="ShowGlobalSetPriceDialog">
                             <i class="bi bi-currency-dollar me-1"></i> Set Global Cubic Price
                         </button>
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin,User" Context="monthlyContext">
-                        <button class="btn btn-secondary" @onclick="ShowGlobalMonthlyPriceDialog">
+                        <button class="btn btn-secondary flex-fill animated-button" @onclick="ShowGlobalMonthlyPriceDialog">
                             <i class="bi bi-calendar-check me-1"></i> Set Global Monthly Price
                         </button>
                     </AuthorizeView>
@@ -60,106 +60,133 @@
         }
         else if (filteredUsers == null || !filteredUsers.Any())
         {
-            <div class="alert alert-info">No users found.</div>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                No users found.
+            </div>
         }
         else
         {
-            <div class="mb-3">
-                <div class="sorting-buttons d-flex flex-wrap gap-2">
-                    <button class="btn btn-outline-secondary @(sortField == "Username" ? "active" : "")" 
-                            @onclick='() => SortUsers("Username")'>
-                        <span class="d-flex align-items-center">
-                            Name
-                            @if (sortField == "Username")
-                            {
-                                <i class="bi @(sortAscending ? "bi-sort-alpha-down" : "bi-sort-alpha-up") ms-1"></i>
-                            }
-                        </span>
-                    </button>
-                    <button class="btn btn-outline-secondary @(sortField == "Email" ? "active" : "")" 
-                            @onclick='() => SortUsers("Email")'>
-                        <span class="d-flex align-items-center">
-                            Email
-                            @if (sortField == "Email")
-                            {
-                                <i class="bi @(sortAscending ? "bi-sort-alpha-down" : "bi-sort-alpha-up") ms-1"></i>
-                            }
-                        </span>
-                    </button>
-                    <button class="btn btn-outline-secondary @(sortField == "CreatedAt" ? "active" : "")" 
-                            @onclick='() => SortUsers("CreatedAt")'>
-                        <span class="d-flex align-items-center">
-                            Registration Date
-                            @if (sortField == "CreatedAt")
-                            {
-                                <i class="bi @(sortAscending ? "bi-sort-down" : "bi-sort-up") ms-1"></i>
-                            }
-                        </span>
-                    </button>
-                </div>
+            <div class="table-container animate-fade-in">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th @onclick='() => SortUsers("Username")' class="sortable-header">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-person-circle me-2"></i>
+                                    Name
+                                    @if (sortField == "Username")
+                                    {
+                                        <i class="bi @(sortAscending ? "bi-sort-alpha-down" : "bi-sort-alpha-up") ms-2"></i>
+                                    }
+                                </div>
+                            </th>
+                            <th @onclick='() => SortUsers("Email")' class="sortable-header">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-envelope me-2"></i>
+                                    Email
+                                    @if (sortField == "Email")
+                                    {
+                                        <i class="bi @(sortAscending ? "bi-sort-alpha-down" : "bi-sort-alpha-up") ms-2"></i>
+                                    }
+                                </div>
+                            </th>
+                            <th>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-telephone me-2"></i>
+                                    Phone
+                                </div>
+                            </th>
+                            <th @onclick='() => SortUsers("CreatedAt")' class="sortable-header">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-calendar3 me-2"></i>
+                                    Registration Date
+                                    @if (sortField == "CreatedAt")
+                                    {
+                                        <i class="bi @(sortAscending ? "bi-sort-down" : "bi-sort-up") ms-2"></i>
+                                    }
+                                </div>
+                            </th>
+                            <th>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-circle-half me-2"></i>
+                                    Status
+                                </div>
+                            </th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in currentPageUsers)
+                        {
+                            <tr class="animate-fade-in">
+                                <td>@user.Username</td>
+                                <td>@user.Email</td>
+                                <td>@GetPhoneNumber(user)</td>
+                                <td>@user.CreatedAt.ToShortDateString()</td>
+                                <td>
+                                    <span class="status-indicator @(user.IsActive ? "active" : "inactive")">
+                                        <i class="bi bi-circle-fill me-2"></i>
+                                        @GetStatusText(user)
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-dark btn-sm" @onclick="() => ShowBillsDialog(user)">
+                                            <i class="bi bi-list-check"></i> View Bills
+                                        </button>
+                                        <AuthorizeView Roles="SuperAdmin,Admin,User" Context="createBillContext">
+                                            <button class="btn btn-warning btn-sm" @onclick="() => ShowCreateBillDialog(user)">
+                                                <i class="bi bi-plus-circle"></i> Create Bill
+                                            </button>
+                                        </AuthorizeView>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
 
-            <div class="row g-3">
-                @foreach (var user in filteredUsers)
-                {
-                    <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
-                        <div class="card h-100 shadow-sm">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center mb-3">
-                                    <div class="avatar-placeholder me-3">
-                                        <i class="bi bi-person-circle fs-1"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="card-title mb-0">@user.Username</h5>
-                                        <small class="text-muted">@user.Email</small>
-                                    </div>
-                                </div>
-                                <div class="user-details">
-                                    <p class="mb-1"><i class="bi bi-person-badge me-2"></i>Role: @user.Role</p>
-                                    <p class="mb-1"><i class="bi bi-calendar-check me-2"></i>Created: @user.CreatedAt.ToShortDateString()</p>
-                                    <p class="mb-1"><i class="bi bi-telephone me-2"></i>Phone: @GetPhoneNumber(user)</p>
-                                    <p class="mb-1">
-                                        <i class="bi bi-circle-fill me-2" style="color: @GetStatusColor(user)"></i>
-                                        Status: @GetStatusText(user)
-                                    </p>
-                                </div>
-                                <div class="mt-3 d-flex flex-column gap-2">
-                                    <button class="btn btn-success btn-sm" @onclick="() => ShowBillsDialog(user)">
-                                        <i class="bi bi-list-check me-1"></i> View Bills
-                                    </button>
-                                    <AuthorizeView Roles="SuperAdmin,Admin,User" Context="createBillContext">
-                                        <button class="btn btn-info btn-sm" @onclick="() => ShowWaterBillingDialog(user)">
-                                            <i class="bi bi-water me-1"></i> Create Water Bill
-                                        </button>
-                                        <div class="dropdown">
-                                            <button class="btn btn-primary btn-sm w-100 dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="bi bi-plus-circle me-1"></i> Create Other Bill
-                                            </button>
-                                            <ul class="dropdown-menu w-100" aria-labelledby="dropdownMenuButton">
-                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Necessities)">
-                                                    <i class="bi bi-basket me-1"></i> Necessities Bill
-                                                </button></li>
-                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Emergency)">
-                                                    <i class="bi bi-exclamation-triangle me-1"></i> Emergency Bill
-                                                </button></li>
-                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Maintenance)">
-                                                    <i class="bi bi-tools me-1"></i> Maintenance Bill
-                                                </button></li>
-                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Monthly)">
-                                                    <i class="bi bi-calendar-month me-1"></i> Monthly Bill
-                                                </button></li>
-                                                <li><button class="dropdown-item" @onclick="() => ShowOtherBillingDialog(user, BillType.Other)">
-                                                    <i class="bi bi-three-dots me-1"></i> Other Bill
-                                                </button></li>
-                                            </ul>
-                                        </div>
-                                    </AuthorizeView>
-                                </div>
-                            </div>
-                        </div>
+            @if (totalPages > 1)
+            {
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div class="text-muted">
+                        Showing @(((currentPage - 1) * pageSize) + 1) to @(Math.Min(currentPage * pageSize, filteredUsers.Count)) of @filteredUsers.Count entries
                     </div>
-                }
-            </div>
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination mb-0">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => currentPage = 1" disabled="@(currentPage == 1)">
+                                    <i class="bi bi-chevron-double-left"></i>
+                                </button>
+                            </li>
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => currentPage--" disabled="@(currentPage == 1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                            </li>
+                            @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                            {
+                                var pageNumber = i;
+                                <li class="page-item @(currentPage == pageNumber ? "active" : "")">
+                                    <button class="page-link" @onclick="() => currentPage = pageNumber">@pageNumber</button>
+                                </li>
+                            }
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => currentPage++" disabled="@(currentPage == totalPages)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </li>
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => currentPage = totalPages" disabled="@(currentPage == totalPages)">
+                                    <i class="bi bi-chevron-double-right"></i>
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
         }
     </Authorized>
     <NotAuthorized>
@@ -491,6 +518,48 @@
     </div>
 }
 
+@if (showCreateBillDialog)
+{
+    <div class="modal show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Bill for @selectedUser?.Username</h5>
+                    <button type="button" class="btn-close" @onclick="CloseCreateBillDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="bill-options">
+                        <button class="bill-option" @onclick="() => ShowWaterBillingDialog(selectedUser)">
+                            <i class="bi bi-droplet-fill text-info"></i>
+                            <span>Water Bill</span>
+                        </button>
+                        <button class="bill-option" @onclick="() => ShowOtherBillingDialog(selectedUser, BillType.Necessities)">
+                            <i class="bi bi-basket-fill text-warning"></i>
+                            <span>Necessities Bill</span>
+                        </button>
+                        <button class="bill-option" @onclick="() => ShowOtherBillingDialog(selectedUser, BillType.Emergency)">
+                            <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                            <span>Emergency Bill</span>
+                        </button>
+                        <button class="bill-option" @onclick="() => ShowOtherBillingDialog(selectedUser, BillType.Monthly)">
+                            <i class="bi bi-calendar-fill text-success"></i>
+                            <span>Monthly Bill</span>
+                        </button>
+                        <button class="bill-option" @onclick="() => ShowOtherBillingDialog(selectedUser, BillType.Maintenance)">
+                            <i class="bi bi-tools text-secondary"></i>
+                            <span>Maintenance Bill</span>
+                        </button>
+                        <button class="bill-option" @onclick="() => ShowOtherBillingDialog(selectedUser, BillType.Other)">
+                            <i class="bi bi-three-dots text-primary"></i>
+                            <span>Other Bill</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     :root {
         --primary-color: #ffd54f; /* Softer yellow */
@@ -594,15 +663,24 @@
 
     /* Action buttons */
     .btn-sm {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
-        line-height: 1.5;
-        border-radius: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.8125rem;
+        border-radius: 50rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+        height: 28px;
+        line-height: 1;
+        font-weight: 500;
+        border: none;
         transition: all 0.2s;
     }
 
     .btn-sm i {
-        font-size: 1rem;
+        font-size: 0.875rem;
+        position: relative;
+        top: 1px;
     }
 
     .table {
@@ -674,121 +752,308 @@
     }
 
     /* Dropdown styling */
+    .dropdown {
+        position: relative;
+    }
+
+    .dropdown-menu {
+        padding: 0.5rem 0;
+        border-radius: 0.5rem;
+        border: none;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        min-width: 200px;
+        z-index: 1050;
+        position: absolute;
+        right: 0;
+        margin-top: 0.5rem;
+        background-color: #fff;
+    }
+
+    .dropdown-menu.show {
+        display: block;
+        opacity: 1;
+        transform: translateY(0);
+        transition: all 0.2s ease;
+    }
+
+    .table-container {
+        position: relative;
+        z-index: 1;
+    }
+
+    .action-buttons {
+        position: relative;
+        z-index: 2;
+    }
+
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #495057;
+        transition: all 0.2s;
+        white-space: nowrap;
+        cursor: pointer;
+        position: relative;
+        z-index: 1051;
+    }
+
     .dropdown-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .dropdown-item i {
+        font-size: 1rem;
+        width: 1.25rem;
+        text-align: center;
+    }
+
+    .dropdown-divider {
+        margin: 0.5rem 0;
+        border-color: #e9ecef;
+    }
+
+    /* Table cell positioning */
+    .table td {
+        position: relative;
+    }
+
+    .table td:last-child {
+        overflow: visible;
+    }
+
+    /* Modal z-index adjustment */
+    .modal {
+        z-index: 1060;
+    }
+
+    /* Ensure dropdowns are above other content */
+    @@media (max-width: 768px) {
+        .dropdown-menu {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: auto;
+            margin: 0;
+            border-radius: 1rem 1rem 0 0;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: translateY(0);
+            z-index: 1050;
+        }
+    }
+
+    /* Updated button styles */
+    .animated-button {
+        transition: all 0.3s ease;
+    }
+
+    .animated-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Table Styles */
+    .table-container {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background-color: var(--background-light);
+        border-bottom: 2px solid var(--border-color);
+        padding: 1rem;
+        font-weight: 600;
+    }
+
+    .sortable-header {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .sortable-header:hover {
         background-color: var(--hover-yellow);
-        color: var(--text-dark);
     }
 
-    .dropdown-item:active {
-        background-color: var(--secondary-light);
-        color: var(--text-light);
+    .table tbody tr {
+        transition: all 0.2s ease;
     }
 
-    /* Update button classes in the HTML */
-    .btn-primary {
-        background-color: var(--primary-color) !important;
-        border-color: var(--primary-color) !important;
-        color: var(--text-dark) !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    .table tbody tr:hover {
+        background-color: var(--hover-yellow);
+        transform: scale(1.001);
     }
 
-    .btn-primary:hover {
-        background-color: var(--primary-light) !important;
-        border-color: var(--primary-light) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    /* Status Indicator */
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50rem;
+        font-size: 0.875rem;
+        font-weight: 500;
     }
 
-    .btn-secondary {
-        background-color: var(--secondary-color) !important;
-        border-color: var(--secondary-color) !important;
-        color: var(--text-light) !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    .status-indicator.active {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
     }
 
-    .btn-secondary:hover {
-        background-color: var(--secondary-light) !important;
-        border-color: var(--secondary-light) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .status-indicator.inactive {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
     }
 
-    .btn-success {
-        background-color: var(--secondary-color) !important;
-        border-color: var(--secondary-color) !important;
-        color: var(--primary-color) !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* Updated Button Styles */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
     }
 
-    .btn-success:hover {
-        background-color: var(--secondary-light) !important;
-        border-color: var(--secondary-light) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .bill-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
     }
 
-    .btn-info {
-        background-color: var(--primary-light) !important;
-        border-color: var(--primary-light) !important;
-        color: var(--text-dark) !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    .btn-sm {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.8125rem;
+        border-radius: 50rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+        height: 28px;
+        line-height: 1;
+        font-weight: 500;
+        border: none;
+        transition: all 0.2s;
     }
 
-    .btn-info:hover {
-        background-color: var(--hover-yellow) !important;
-        border-color: var(--hover-yellow) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .btn-sm i {
+        font-size: 0.875rem;
+        position: relative;
+        top: 1px;
     }
 
-    .btn-danger {
-        background-color: var(--secondary-color) !important;
-        border-color: var(--secondary-color) !important;
-        color: var(--text-light) !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* Button Colors */
+    .btn-dark {
+        background-color: #343a40;
+        color: #fff;
     }
 
-    .btn-danger:hover {
-        background-color: var(--secondary-light) !important;
-        border-color: var(--secondary-light) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .btn-dark:hover {
+        background-color: #23272b;
     }
 
-    .btn-outline-secondary {
-        color: var(--secondary-color) !important;
-        border-color: var(--border-color) !important;
-        background-color: transparent !important;
+    .btn-light {
+        background-color: #ffeeba;
+        color: #333;
     }
 
-    .btn-outline-secondary:hover, 
-    .btn-outline-secondary.active {
-        color: var(--text-dark) !important;
-        background-color: var(--background-light) !important;
-        border-color: var(--secondary-light) !important;
+    .btn-light:hover {
+        background-color: #ffdf7e;
     }
 
-    /* Responsive Styles */
-    @@media (max-width: 767px) {
-        .input-group {
-            min-width: 100%;
-        }
-        
-        .btn {
-            white-space: normal;
-            height: auto;
-            min-height: 38px;
-        }
+    .btn-warning {
+        background-color: #ffc107;
+        color: #333;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+    }
+
+    /* View Bills Button */
+    button[onclick*="ShowBillsDialog"] {
+        background-color: #495057;
+        color: #fff;
+    }
+
+    button[onclick*="ShowBillsDialog"]:hover {
+        background-color: #343a40;
+    }
+
+    /* Table Adjustments */
+    .table td {
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+
+    /* Status Styles */
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .status-indicator.active {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+
+    .status-indicator.inactive {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+
+    /* Responsive Adjustments */
+    .search-container {
+        min-width: 200px;
+        max-width: 100%;
+    }
+
+    .button-container {
+        display: flex;
+        gap: 0.5rem;
+        width: 100%;
     }
 
     @@media (min-width: 768px) {
-        .input-group {
+        .search-container {
             width: 300px;
         }
         
-        .btn {
-            white-space: nowrap;
+        .button-container {
+            width: auto;
+            flex-wrap: nowrap;
+        }
+    }
+
+    @@media (max-width: 767px) {
+        .button-container {
+            flex-direction: column;
+        }
+        
+        .button-container .btn {
+            width: 100%;
+        }
+        
+        .search-container {
+            width: 100%;
         }
     }
 
     @@media (min-width: 992px) {
-        .d-flex.flex-column.flex-sm-row.gap-2 {
-            flex-wrap: nowrap;
+        .d-flex.flex-column.flex-md-row.gap-3.w-100.w-md-auto {
+            width: auto !important;
         }
     }
 
@@ -910,6 +1175,730 @@
             flex: 0 1 auto;
         }
     }
+
+    /* Animation Keyframes */
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @@keyframes slideIn {
+        from { transform: translateX(-20px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    /* Animated Elements */
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    .animated-button {
+        transition: all 0.3s ease;
+    }
+
+    .animated-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Table Styles */
+    .table-container {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        overflow: hidden;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background-color: var(--background-light);
+        border-bottom: 2px solid var(--border-color);
+        padding: 1rem;
+        font-weight: 600;
+    }
+
+    .sortable-header {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .sortable-header:hover {
+        background-color: var(--hover-yellow);
+    }
+
+    .table tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    .table tbody tr:hover {
+        background-color: var(--hover-yellow);
+        transform: scale(1.001);
+    }
+
+    /* Status Indicator */
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .status-indicator.active {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+
+    .status-indicator.inactive {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+
+    /* Updated Button Styles */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .bill-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.8125rem;
+        border-radius: 50rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+        height: 28px;
+        line-height: 1;
+        font-weight: 500;
+        border: none;
+        transition: all 0.2s;
+    }
+
+    .btn-sm i {
+        font-size: 0.875rem;
+        position: relative;
+        top: 1px;
+    }
+
+    /* Button Colors */
+    .btn-dark {
+        background-color: #343a40;
+        color: #fff;
+    }
+
+    .btn-dark:hover {
+        background-color: #23272b;
+    }
+
+    .btn-light {
+        background-color: #ffeeba;
+        color: #333;
+    }
+
+    .btn-light:hover {
+        background-color: #ffdf7e;
+    }
+
+    .btn-warning {
+        background-color: #ffc107;
+        color: #333;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+    }
+
+    /* View Bills Button */
+    button[onclick*="ShowBillsDialog"] {
+        background-color: #495057;
+        color: #fff;
+    }
+
+    button[onclick*="ShowBillsDialog"]:hover {
+        background-color: #343a40;
+    }
+
+    /* Table Adjustments */
+    .table td {
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+
+    /* Status Styles */
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .status-indicator.active {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+
+    .status-indicator.inactive {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+
+    /* Responsive Adjustments */
+    @@media (max-width: 768px) {
+        .action-buttons {
+            flex-wrap: wrap;
+        }
+
+        .bill-buttons {
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+        }
+    }
+
+    /* Table Header Styles */
+    .table th {
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #dee2e6;
+        padding: 0.75rem;
+    }
+
+    /* Ensure consistent width for action column */
+    .table th:last-child,
+    .table td:last-child {
+        min-width: 420px;
+    }
+
+    /* Dropdown Styles */
+    .dropdown-menu {
+        padding: 0.5rem 0;
+        border-radius: 0.5rem;
+        border: none;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        min-width: 200px;
+        z-index: 1050;
+        position: absolute;
+        right: 0;
+        margin-top: 0.5rem;
+        background-color: #fff;
+    }
+
+    .dropdown-menu.show {
+        display: block;
+        opacity: 1;
+        transform: translateY(0);
+        transition: all 0.2s ease;
+    }
+
+    .table-container {
+        position: relative;
+        z-index: 1;
+    }
+
+    .action-buttons {
+        position: relative;
+        z-index: 2;
+    }
+
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #495057;
+        transition: all 0.2s;
+        white-space: nowrap;
+        cursor: pointer;
+        position: relative;
+        z-index: 1051;
+    }
+
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .dropdown-item i {
+        font-size: 1rem;
+        width: 1.25rem;
+        text-align: center;
+    }
+
+    .dropdown-divider {
+        margin: 0.5rem 0;
+        border-color: #e9ecef;
+    }
+
+    /* Table cell positioning */
+    .table td {
+        position: relative;
+    }
+
+    .table td:last-child {
+        overflow: visible;
+    }
+
+    /* Modal z-index adjustment */
+    .modal {
+        z-index: 1060;
+    }
+
+    /* Ensure dropdowns are above other content */
+    @@media (max-width: 768px) {
+        .dropdown-menu {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: auto;
+            margin: 0;
+            border-radius: 1rem 1rem 0 0;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    }
+
+    /* Pagination Styles */
+    .pagination {
+        gap: 0.25rem;
+    }
+
+    .page-link {
+        border: none;
+        padding: 0.375rem 0.75rem;
+        color: #495057;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+        background-color: #fff;
+        transition: all 0.2s;
+    }
+
+    .page-link:hover:not(.disabled) {
+        background-color: #e9ecef;
+        color: #212529;
+        transform: translateY(-1px);
+    }
+
+    .page-item.active .page-link {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .page-item.disabled .page-link {
+        background-color: #f8f9fa;
+        color: #6c757d;
+        cursor: not-allowed;
+    }
+
+    /* Table Adjustments */
+    .table-container {
+        background-color: #fff;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        overflow: hidden;
+    }
+
+    /* Action Column Width */
+    .table th:last-child,
+    .table td:last-child {
+        min-width: 220px;
+    }
+
+    /* Reset table styles that might affect dropdown */
+    .table {
+        position: static;
+    }
+
+    .table td {
+        position: static;
+        padding: 0.75rem;
+    }
+
+    /* Dropdown container and positioning */
+    .dropdown-container {
+        position: static;
+        display: inline-block;
+    }
+
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    /* Dropdown menu styling */
+    .dropdown-menu {
+        position: absolute;
+        inset: 0px auto auto 0px;
+        margin: 0;
+        transform: translate3d(0px, 40px, 0px);
+        padding: 0.5rem 0;
+        border: none;
+        border-radius: 0.5rem;
+        background-color: #fff;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        min-width: 200px;
+        z-index: 9999;
+    }
+
+    .dropdown-menu.show {
+        display: block;
+        animation: fadeIn 0.2s ease-in-out;
+    }
+
+    /* Dropdown items */
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: #495057;
+        transition: all 0.2s;
+        white-space: nowrap;
+        cursor: pointer;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+    }
+
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .dropdown-item i {
+        font-size: 1rem;
+        width: 1.25rem;
+        text-align: center;
+    }
+
+    .dropdown-divider {
+        margin: 0.5rem 0;
+        border-color: #e9ecef;
+    }
+
+    /* Animation */
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translate3d(0px, 30px, 0px);
+        }
+        to {
+            opacity: 1;
+            transform: translate3d(0px, 40px, 0px);
+        }
+    }
+
+    /* Ensure dropdowns are above all other content */
+    .modal { z-index: 1050; }
+    .dropdown-menu { z-index: 9999; }
+    .table-container { z-index: 1; }
+    .action-buttons { z-index: auto; }
+    
+    /* Mobile responsiveness */
+    @@media (max-width: 768px) {
+        .dropdown-menu {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            top: auto;
+            transform: none;
+            margin: 0;
+            border-radius: 1rem 1rem 0 0;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    }
+
+    /* Essential fixes for dropdown layering */
+    .table-container {
+        position: relative;
+        z-index: 1;
+    }
+
+    .table {
+        position: static;
+    }
+
+    .table td {
+        position: static;
+    }
+
+    .action-buttons {
+        position: static;
+    }
+
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .dropdown-menu {
+        position: absolute;
+        z-index: 1500;
+        background: white;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-top: 0.5rem;
+    }
+
+    .bill-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .bill-option {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        border: 1px solid #e9ecef;
+        border-radius: 0.5rem;
+        background: white;
+        transition: all 0.2s;
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+    }
+
+    .bill-option:hover {
+        background: #f8f9fa;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .bill-option i {
+        font-size: 1.25rem;
+    }
+
+    .bill-option span {
+        font-size: 0.9375rem;
+        font-weight: 500;
+    }
+
+    @@media (max-width: 576px) {
+        .bill-options {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Animation Keyframes */
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes fadeScale {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    /* Table Animations */
+    .table-container {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .table tbody tr {
+        animation: fadeScale 0.3s ease-out;
+    }
+
+    /* Status Indicator Animations */
+    .status-indicator {
+        transition: all 0.3s ease;
+    }
+
+    .status-indicator.active {
+        animation: pulse 2s infinite;
+    }
+
+    /* Button Animations */
+    .btn {
+        transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn:active {
+        transform: translateY(0);
+    }
+
+    .btn i {
+        transition: all 0.2s ease;
+    }
+
+    /* Specific button hover effects */
+    .btn-dark:hover i {
+        transform: scale(1.2);
+    }
+
+    .btn-warning:hover i {
+        animation: spin 0.5s ease-out;
+    }
+
+    /* Modal Animations */
+    .modal {
+        animation: fadeScale 0.3s ease-out;
+    }
+
+    .modal-content {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    /* Bill Options Animation */
+    .bill-options {
+        display: grid;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .bill-option {
+        animation: fadeScale 0.3s ease-out;
+        animation-fill-mode: both;
+    }
+
+    /* Stagger animation for bill options */
+    .bill-option:nth-child(1) { animation-delay: 0.1s; }
+    .bill-option:nth-child(2) { animation-delay: 0.15s; }
+    .bill-option:nth-child(3) { animation-delay: 0.2s; }
+    .bill-option:nth-child(4) { animation-delay: 0.25s; }
+    .bill-option:nth-child(5) { animation-delay: 0.3s; }
+    .bill-option:nth-child(6) { animation-delay: 0.35s; }
+
+    .bill-option:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    }
+
+    .bill-option:hover i {
+        transform: scale(1.2);
+        transition: transform 0.2s ease;
+    }
+
+    /* Icon specific animations */
+    .bi-droplet-fill { color: #0dcaf0; }
+    .bi-basket-fill { color: #ffc107; }
+    .bi-exclamation-triangle-fill { color: #dc3545; }
+    .bi-calendar-fill { color: #198754; }
+    .bi-tools { color: #6c757d; }
+    .bi-three-dots { color: #0d6efd; }
+
+    /* Search and filter animations */
+    .search-container {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .search-container input:focus {
+        transform: scale(1.02);
+        transition: all 0.2s ease;
+    }
+
+    /* Pagination Animations */
+    .pagination .page-link {
+        transition: all 0.2s ease;
+    }
+
+    .pagination .page-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .page-item.active .page-link {
+        animation: pulse 2s infinite;
+    }
+
+    /* Loading Animation */
+    .spinner-border {
+        animation: spin 1s linear infinite;
+    }
+
+    /* Responsive Animations */
+    @@media (max-width: 768px) {
+        .bill-option:hover {
+            transform: translateY(-2px);
+        }
+    }
+
+    /* Reduce animations if user prefers reduced motion */
+    @@media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
 </style>
 
 @code 
@@ -938,24 +1927,30 @@
     private List<UserDto> filteredUsers => GetFilteredAndSortedUsers();
     private bool showMonthlyPriceDialog = false;
     private MonthlyPriceModel monthlyPriceModel = new();
+    private int pageSize = 10;
+    private int currentPage = 1;
+    private int totalPages => (int)Math.Ceiling(filteredUsers.Count / (double)pageSize);
+    private List<UserDto> currentPageUsers => filteredUsers.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
+    private bool showCreateBillDialog = false;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var response = await AccountService.GetAllUsersAsync();
+            loading = true;
+            var response = await AccountService.GetClientProfilesAsync();
             if (response.IsSuccess && response.Data != null)
             {
                 users = response.Data;
             }
             else
             {
-                await swal.FireAsync("Error", "Failed to load users", SweetAlertIcon.Error);
+                await swal.FireAsync("Error", "Failed to load users: " + response.Message, SweetAlertIcon.Error);
             }
         }
         catch (Exception ex)
         {
-            await swal.FireAsync("Error", "An error occurred while loading users", SweetAlertIcon.Error);
+            await swal.FireAsync("Error", "An error occurred while loading users: " + ex.Message, SweetAlertIcon.Error);
         }
         finally
         {
@@ -1175,7 +2170,8 @@
         public string UserId { get; set; }
         
         [Required(ErrorMessage = "Cubic meter reading is required")]
-        [Range(0, double.MaxValue, ErrorMessage = "Cubic meter reading must be positive")]
+        [Range(typeof(decimal), "0", "9999.99", ErrorMessage = "Cubic meter reading must be between 0 and 9,999.99")]
+        [RegularExpression(@"^\d{1,4}(\.\d{0,2})?$", ErrorMessage = "Please enter a valid number with up to 4 digits and maximum 2 decimal places")]
         public decimal CubicMeterUsed { get; set; }
 
         [Required(ErrorMessage = "Due date is required")]
@@ -1367,12 +2363,13 @@
 
     private void ShowWaterBillingDialog(UserDto user)
     {
+        CloseCreateBillDialog(); // Close the create bill modal first
         selectedUser = user;
         waterBillingModel = new WaterBillingModel
         {
             UserId = user.Id.ToString(),
             CubicMeterUsed = 0,
-            DueDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month)) // Set to last day of current month
+            DueDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month))
         };
         showWaterBillingDialog = true;
         StateHasChanged();
@@ -1390,9 +2387,9 @@
     {
         try
         {
-            if (waterBillingModel.CubicMeterUsed < 0)
+            if (waterBillingModel.CubicMeterUsed < 0 || waterBillingModel.CubicMeterUsed > 9999.99m)
             {
-                await swal.FireAsync("Error", "Cubic meter reading cannot be negative", SweetAlertIcon.Error);
+                await swal.FireAsync("Error", "Cubic meter reading must be between 0 and 9,999.99", SweetAlertIcon.Error);
                 return;
             }
 
@@ -1430,10 +2427,10 @@
 
     private void ShowOtherBillingDialog(UserDto user, BillType billType)
     {
+        CloseCreateBillDialog(); // Close the create bill modal first
         selectedUser = user;
         selectedBillType = billType;
 
-        // Set default due date based on bill type
         DateTime dueDate = billType == BillType.Monthly
             ? new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month))
             : DateTime.Now.AddDays(30);
@@ -1474,6 +2471,14 @@
                 return;
             }
 
+            if (string.IsNullOrWhiteSpace(otherBillingModel.Description) || 
+                otherBillingModel.Description.Length < 5 || 
+                otherBillingModel.Description.Length > 200)
+            {
+                await swal.FireAsync("Error", "Description must be between 5 and 200 characters", SweetAlertIcon.Error);
+                return;
+            }
+
             // Create the bill using AddBillAsync
             var billDto = new BillingDto
             {
@@ -1499,7 +2504,41 @@
             }
             else
             {
-                await swal.FireAsync("Error", response.Message ?? "Failed to create bill", SweetAlertIcon.Error);
+                string errorMessage = "Failed to create bill";
+                
+                // Check if the error contains validation message about description length
+                if (response.Message?.Contains("Description must be a string with a minimum length of 5") == true)
+                {
+                    errorMessage = "Description must be between 5 and 200 characters";
+                }
+                else if (!string.IsNullOrEmpty(response.Message))
+                {
+                    // Try to extract a user-friendly message from the error response
+                    if (response.Message.Contains("errors"))
+                    {
+                        try
+                        {
+                            // Try to find the actual error message
+                            var startIndex = response.Message.IndexOf("Description") + "Description".Length;
+                            var endIndex = response.Message.LastIndexOf("}");
+                            if (startIndex > 0 && endIndex > startIndex)
+                            {
+                                var extractedMessage = response.Message.Substring(startIndex, endIndex - startIndex)
+                                    .Replace("\":[\"", "")
+                                    .Replace("\"]", "")
+                                    .Trim();
+                                errorMessage = extractedMessage;
+                            }
+                        }
+                        catch
+                        {
+                            // If parsing fails, use a generic message
+                            errorMessage = "Please check your input and try again";
+                        }
+                    }
+                }
+
+                await swal.FireAsync("Error", errorMessage, SweetAlertIcon.Error);
             }
         }
         catch (Exception ex)
@@ -1611,4 +2650,17 @@
             await swal.FireAsync("Error", "An error occurred while deleting the bill", SweetAlertIcon.Error);
         }
     }
+
+    private void ShowCreateBillDialog(UserDto user)
+    {
+        selectedUser = user;
+        showCreateBillDialog = true;
+    }
+
+    private void CloseCreateBillDialog()
+    {
+        showCreateBillDialog = false;
+        selectedUser = null;
+    }
 }
+

@@ -332,5 +332,260 @@ namespace BlazorApp1.Server.Controllers
                 return StatusCode(500, 0m);
             }
         }
+
+        [HttpGet("GetPendingWaterBills")]
+        public async Task<ActionResult<List<PendingBillDto>>> GetPendingWaterBills([FromQuery] int year, [FromQuery] string viewType, [FromQuery] int? month = null)
+        {
+            try
+            {
+                var query = _context.Bills
+                    .Include(b => b.User)
+                    .Where(b => b.BillType == "Water" && !b.IsPaid);
+
+                // Apply date filtering
+                if (viewType.ToLower() == "yearly")
+                {
+                    query = query.Where(b => b.BillDate.Year == year);
+                }
+                else if (viewType.ToLower() == "monthly" && month.HasValue)
+                {
+                    query = query.Where(b => b.BillDate.Year == year && b.BillDate.Month == month.Value);
+                }
+
+                var bills = await query.Select(b => new PendingBillDto
+                {
+                    Id = b.Id,
+                    ClientName = b.User.UserDetails.FullName ?? b.User.UserName,
+                    BillType = b.BillType,
+                    Amount = b.Amount,
+                    DueDate = b.DueDate
+                }).ToListAsync();
+
+                return Ok(bills);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting pending water bills");
+                return StatusCode(500, new List<PendingBillDto>());
+            }
+        }
+
+        [HttpGet("GetPendingOtherBills")]
+        public async Task<ActionResult<List<PendingBillDto>>> GetPendingOtherBills([FromQuery] int year, [FromQuery] string viewType, [FromQuery] int? month = null)
+        {
+            try
+            {
+                var query = _context.Bills
+                    .Include(b => b.User)
+                    .Where(b => b.BillType != "Water" && !b.IsPaid);
+
+                // Apply date filtering
+                if (viewType.ToLower() == "yearly")
+                {
+                    query = query.Where(b => b.BillDate.Year == year);
+                }
+                else if (viewType.ToLower() == "monthly" && month.HasValue)
+                {
+                    query = query.Where(b => b.BillDate.Year == year && b.BillDate.Month == month.Value);
+                }
+
+                var bills = await query.Select(b => new PendingBillDto
+                {
+                    Id = b.Id,
+                    ClientName = b.User.UserDetails.FullName ?? b.User.UserName,
+                    BillType = b.BillType,
+                    Amount = b.Amount,
+                    DueDate = b.DueDate
+                }).ToListAsync();
+
+                return Ok(bills);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting pending other bills");
+                return StatusCode(500, new List<PendingBillDto>());
+            }
+        }
+
+        [HttpGet("GetAllPendingBills")]
+        public async Task<ActionResult<List<PendingBillDto>>> GetAllPendingBills([FromQuery] int year, [FromQuery] string viewType, [FromQuery] int? month = null)
+        {
+            try
+            {
+                var query = _context.Bills
+                    .Include(b => b.User)
+                    .Where(b => !b.IsPaid);
+
+                // Apply date filtering
+                if (viewType.ToLower() == "yearly")
+                {
+                    query = query.Where(b => b.BillDate.Year == year);
+                }
+                else if (viewType.ToLower() == "monthly" && month.HasValue)
+                {
+                    query = query.Where(b => b.BillDate.Year == year && b.BillDate.Month == month.Value);
+                }
+
+                var bills = await query.Select(b => new PendingBillDto
+                {
+                    Id = b.Id,
+                    ClientName = b.User.UserDetails.FullName ?? b.User.UserName,
+                    BillType = b.BillType,
+                    Amount = b.Amount,
+                    DueDate = b.DueDate
+                }).ToListAsync();
+
+                return Ok(bills);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all pending bills");
+                return StatusCode(500, new List<PendingBillDto>());
+            }
+        }
+
+        [HttpPost("MarkAllWaterBillsAsPaid")]
+        public async Task<ActionResult<Response>> MarkAllWaterBillsAsPaid([FromQuery] int year, [FromQuery] string viewType, [FromQuery] int? month = null)
+        {
+            try
+            {
+                var query = _context.Bills.Where(b => b.BillType == "Water" && !b.IsPaid);
+
+                // Apply date filtering
+                if (viewType.ToLower() == "yearly")
+                {
+                    query = query.Where(b => b.BillDate.Year == year);
+                }
+                else if (viewType.ToLower() == "monthly" && month.HasValue)
+                {
+                    query = query.Where(b => b.BillDate.Year == year && b.BillDate.Month == month.Value);
+                }
+
+                var bills = await query.ToListAsync();
+                foreach (var bill in bills)
+                {
+                    bill.IsPaid = true;
+                    bill.Status = "Paid";
+                    bill.PaymentDate = DateTime.Now;
+                    bill.ORNumber = $"BATCH-{DateTime.Now:yyyyMMddHHmmss}";
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new Response
+                {
+                    IsSuccess = true,
+                    Message = $"Successfully marked {bills.Count} water bills as paid"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking all water bills as paid");
+                return StatusCode(500, new Response
+                {
+                    IsSuccess = false,
+                    Message = "An error occurred while marking water bills as paid"
+                });
+            }
+        }
+
+        [HttpPost("MarkAllOtherBillsAsPaid")]
+        public async Task<ActionResult<Response>> MarkAllOtherBillsAsPaid([FromQuery] int year, [FromQuery] string viewType, [FromQuery] int? month = null)
+        {
+            try
+            {
+                var query = _context.Bills.Where(b => b.BillType != "Water" && !b.IsPaid);
+
+                // Apply date filtering
+                if (viewType.ToLower() == "yearly")
+                {
+                    query = query.Where(b => b.BillDate.Year == year);
+                }
+                else if (viewType.ToLower() == "monthly" && month.HasValue)
+                {
+                    query = query.Where(b => b.BillDate.Year == year && b.BillDate.Month == month.Value);
+                }
+
+                var bills = await query.ToListAsync();
+                foreach (var bill in bills)
+                {
+                    bill.IsPaid = true;
+                    bill.Status = "Paid";
+                    bill.PaymentDate = DateTime.Now;
+                    bill.ORNumber = $"BATCH-{DateTime.Now:yyyyMMddHHmmss}";
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new Response
+                {
+                    IsSuccess = true,
+                    Message = $"Successfully marked {bills.Count} other bills as paid"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking all other bills as paid");
+                return StatusCode(500, new Response
+                {
+                    IsSuccess = false,
+                    Message = "An error occurred while marking other bills as paid"
+                });
+            }
+        }
+
+        [HttpPost("MarkAllBillsAsPaid")]
+        public async Task<ActionResult<Response>> MarkAllBillsAsPaid([FromQuery] int year, [FromQuery] string viewType, [FromQuery] int? month = null)
+        {
+            try
+            {
+                var query = _context.Bills.Where(b => !b.IsPaid);
+
+                // Apply date filtering
+                if (viewType.ToLower() == "yearly")
+                {
+                    query = query.Where(b => b.BillDate.Year == year);
+                }
+                else if (viewType.ToLower() == "monthly" && month.HasValue)
+                {
+                    query = query.Where(b => b.BillDate.Year == year && b.BillDate.Month == month.Value);
+                }
+
+                var bills = await query.ToListAsync();
+                foreach (var bill in bills)
+                {
+                    bill.IsPaid = true;
+                    bill.Status = "Paid";
+                    bill.PaymentDate = DateTime.Now;
+                    bill.ORNumber = $"BATCH-{DateTime.Now:yyyyMMddHHmmss}";
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new Response
+                {
+                    IsSuccess = true,
+                    Message = $"Successfully marked {bills.Count} bills as paid"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking all bills as paid");
+                return StatusCode(500, new Response
+                {
+                    IsSuccess = false,
+                    Message = "An error occurred while marking bills as paid"
+                });
+            }
+        }
+
+        public class PendingBillDto
+        {
+            public int Id { get; set; }
+            public string ClientName { get; set; }
+            public string BillType { get; set; }
+            public decimal Amount { get; set; }
+            public DateTime DueDate { get; set; }
+        }
     }
 } 

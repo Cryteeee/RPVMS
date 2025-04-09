@@ -400,5 +400,31 @@ namespace BlazorApp1.Server.Controllers
                 return StatusCode(500, "An unexpected error occurred while retrieving submissions. Please try again later.");
             }
         }
+
+        [HttpDelete("{id}/permanent")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> DeleteSubmissionPermanently(int id)
+        {
+            try
+            {
+                var submission = await _context.Submissions.FindAsync(id);
+                if (submission == null)
+                {
+                    return NotFound($"Submission with ID {id} not found");
+                }
+
+                // Permanently remove from database
+                _context.Submissions.Remove(submission);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Submission {id} has been permanently deleted", id);
+                return Ok(new { message = "Submission has been permanently deleted" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error permanently deleting submission {Id}", id);
+                return StatusCode(500, "An error occurred while permanently deleting the submission");
+            }
+        }
     }
 } 

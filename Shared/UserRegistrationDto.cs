@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using BlazorApp1.Shared.Validations;
 
 namespace BlazorApp1.Shared
 {
@@ -12,7 +13,7 @@ namespace BlazorApp1.Shared
         public string Username { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Email is required")]
-        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [CustomEmail]
         [JsonPropertyName("email")]
         public string Email { get; set; } = string.Empty;
 
