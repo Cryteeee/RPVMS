@@ -1,0 +1,19 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - curl -sSL https://dot.net/v1/dotnet-install.sh > dotnet-install.sh
+        - chmod +x dotnet-install.sh
+        - ./dotnet-install.sh -c 7.0 -InstallDir ./dotnet7
+        - export PATH="./dotnet7:$PATH"
+        - dotnet --version
+    build:
+      commands:
+        - dotnet publish -c Release -o dist
+  artifacts:
+    baseDirectory: dist/wwwroot
+    files:
+      - '**/*'
+  cache:
+    paths: [] 
