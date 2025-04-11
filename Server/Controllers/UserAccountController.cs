@@ -119,6 +119,7 @@ namespace BlazorApp1.Server.Controllers
                 _logger.LogInformation("GetAll endpoint called");
                 
                 var users = await _context.Users
+                    .Include(u => u.UserDetails)
                     .Where(u => u.Role != "SuperAdmin")
                     .Select(u => new UserDto
                     {
@@ -130,7 +131,8 @@ namespace BlazorApp1.Server.Controllers
                         IsActive = u.IsActive,
                         CreatedAt = u.CreatedAt,
                         LastLoginAt = u.LastLoginAt,
-                        IsEmailVerified = u.IsEmailVerified
+                        IsEmailVerified = u.IsEmailVerified,
+                        PhoneNumber = u.UserDetails != null ? u.UserDetails.ContactNumber : null
                     })
                     .ToListAsync();
 
@@ -1013,6 +1015,7 @@ namespace BlazorApp1.Server.Controllers
                 _logger.LogInformation("GetClientProfiles endpoint called");
                 
                 var users = await _context.Users
+                    .Include(u => u.UserDetails)
                     .Where(u => u.Role == "Client")
                     .Select(u => new UserDto
                     {
@@ -1024,7 +1027,8 @@ namespace BlazorApp1.Server.Controllers
                         IsActive = u.IsActive,
                         CreatedAt = u.CreatedAt,
                         LastLoginAt = u.LastLoginAt,
-                        IsEmailVerified = u.IsEmailVerified
+                        IsEmailVerified = u.IsEmailVerified,
+                        PhoneNumber = u.UserDetails.ContactNumber
                     })
                     .ToListAsync();
 
