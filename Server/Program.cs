@@ -98,7 +98,7 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
 // Add HttpClient configuration
 builder.Services.AddHttpClient("ManagementSystem", client =>
 {
-    client.BaseAddress = new Uri("https://rpvms-api.azurewebsites.net/");
+    client.BaseAddress = new Uri(builder.Configuration["BaseUri"] ?? "https://main.d3445jgtnjwhm9.amplifyapp.com/");
     client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 });
 
@@ -111,11 +111,14 @@ builder.Services.Configure<JsonOptions>(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-// Ensure database is created and migrations are applied
-using (var scope = builder.Services.BuildServiceProvider().CreateScope())
+// Make database migration conditional
+if (builder.Environment.IsDevelopment())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.Migrate();
+    using (var scope = builder.Services.BuildServiceProvider().CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        dbContext.Database.Migrate();
+    }
 }
 
 // Add UserService for validation
