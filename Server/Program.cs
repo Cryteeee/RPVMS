@@ -247,12 +247,12 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Map controllers with the /api prefix
-app.MapControllers().RequireAuthorization().WithGroupName("api").WithPrefix("/api");
+// Map controllers and hubs without requiring authorization by default
+app.MapControllers();
 app.MapRazorPages();
-app.MapHub<UserHub>("/api/userhub");
-app.MapHub<NotificationHub>("/api/notificationHub");
-app.MapHub<BoardMessageHub>("/api/boardMessageHub");
+app.MapHub<UserHub>("/userhub");
+app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<BoardMessageHub>("/boardMessageHub");
 
 // This should be last
 app.MapFallbackToFile("index.html");

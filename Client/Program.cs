@@ -31,7 +31,7 @@ try
     // Use the server's URL for the API endpoint
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
-        client.BaseAddress = new Uri("https://main.d3445jgtnjwhm9.amplifyapp.com/api/");
+        client.BaseAddress = new Uri("https://main.d3445jgtnjwhm9.amplifyapp.com/");
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
