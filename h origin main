@@ -1,0 +1,5 @@
+[33mcommit 1091b6371b454b8d8877fc312a55881e81e294cc[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: helios16 <crossnodes@gmail.com>
+Date:   Sat Apr 12 23:01:16 2025 +0800
+
+    refactor: move sensitive configuration to environment variables for AWS Amplify deployment
