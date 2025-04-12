@@ -143,21 +143,22 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    var jwtKey = builder.Configuration["JwtSettings:SecretKey"] ?? "your-256-bit-secret";
+    var issuer = builder.Configuration["JwtSettings:Issuer"] ?? "https://main.d3445jgtnjwhm9.amplifyapp.com";
+    var audience = builder.Configuration["JwtSettings:Audience"] ?? "https://main.d3445jgtnjwhm9.amplifyapp.com";
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
-        ValidAudience = builder.Configuration["JwtSettings:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"] ?? 
-                throw new InvalidOperationException("JWT Secret Key is not configured"))),
+        ValidIssuer = issuer,
+        ValidAudience = audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero
     };
 
-    // Configure the JWT Bearer events for SignalR
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -165,7 +166,10 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
             
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/boardMessageHub"))
+            if (!string.IsNullOrEmpty(accessToken) && 
+                (path.StartsWithSegments("/userhub") || 
+                 path.StartsWithSegments("/notificationHub") || 
+                 path.StartsWithSegments("/boardMessageHub")))
             {
                 context.Token = accessToken;
             }
