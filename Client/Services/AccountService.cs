@@ -93,7 +93,7 @@ namespace BlazorApp1.Client.Services
                 _logger?.LogInformation($"Attempting login for email: {loginModel.Email}");
                 
                 var httpClient = _httpClientFactory.CreateClient("ManagementSystem");
-                var response = await httpClient.PostAsJsonAsync("api/UserAccount/Login", loginModel, _jsonOptions);
+                var response = await httpClient.PostAsJsonAsync("api/Account/Login", loginModel, _jsonOptions);
                 
                 if (!response.IsSuccessStatusCode)
                 {

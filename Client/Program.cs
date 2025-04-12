@@ -28,12 +28,10 @@ try
     // Configure HttpClient with custom handler
     builder.Services.AddScoped<CustomHttpHandler>();
     
-    // Use the current base address for the API endpoint
-    var baseAddress = builder.HostEnvironment.BaseAddress;
+    // Use the server's URL for the API endpoint
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
-        // In production, use the same domain as the client app
-        client.BaseAddress = new Uri(baseAddress);
+        client.BaseAddress = new Uri("https://localhost:7052/");
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
