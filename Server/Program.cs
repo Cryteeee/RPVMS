@@ -197,7 +197,7 @@ builder.Services.AddCors(options =>
         builder =>
         {
             builder
-                .WithOrigins("https://main.d3445jgtnjwhm9.amplifyapp.com")
+                .SetIsOriginAllowed(_ => true) // Be careful with this in production
                 .AllowAnyMethod()
                 .AllowAnyHeader()
                 .AllowCredentials();
@@ -244,11 +244,14 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Map controllers with the /api prefix
+app.MapControllers().RequireAuthorization().WithGroupName("api").WithPrefix("/api");
 app.MapRazorPages();
-app.MapControllers();
-app.MapHub<UserHub>("/userhub");
-app.MapHub<NotificationHub>("/notificationHub");
-app.MapHub<BoardMessageHub>("/boardMessageHub");
+app.MapHub<UserHub>("/api/userhub");
+app.MapHub<NotificationHub>("/api/notificationHub");
+app.MapHub<BoardMessageHub>("/api/boardMessageHub");
+
+// This should be last
 app.MapFallbackToFile("index.html");
 
 // Initialize database and SuperAdmin
