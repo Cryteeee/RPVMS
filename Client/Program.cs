@@ -32,9 +32,8 @@ try
     var baseAddress = builder.HostEnvironment.BaseAddress;
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
-        client.BaseAddress = new Uri(builder.HostEnvironment.IsDevelopment() 
-            ? "https://localhost:7052/"
-            : baseAddress);
+        // In production, use the same domain as the client app
+        client.BaseAddress = new Uri(baseAddress);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
