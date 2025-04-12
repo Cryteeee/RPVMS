@@ -98,7 +98,10 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
 // Add HttpClient configuration
 builder.Services.AddHttpClient("ManagementSystem", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["BaseUri"] ?? "https://main.d3445jgtnjwhm9.amplifyapp.com/");
+    var baseUrl = builder.Environment.IsDevelopment()
+        ? "https://localhost:7052/"
+        : "https://main.d3445jgtnjwhm9.amplifyapp.com/";
+    client.BaseAddress = new Uri(baseUrl);
     client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 });
 
@@ -111,14 +114,11 @@ builder.Services.Configure<JsonOptions>(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-// Make database migration conditional
-if (builder.Environment.IsDevelopment())
+// Ensure database is created and migrations are applied
+using (var scope = builder.Services.BuildServiceProvider().CreateScope())
 {
-    using (var scope = builder.Services.BuildServiceProvider().CreateScope())
-    {
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        dbContext.Database.Migrate();
-    }
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    dbContext.Database.Migrate();
 }
 
 // Add UserService for validation
@@ -143,22 +143,21 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    var jwtKey = builder.Configuration["JwtSettings:SecretKey"] ?? "your-256-bit-secret";
-    var issuer = builder.Configuration["JwtSettings:Issuer"] ?? "https://main.d3445jgtnjwhm9.amplifyapp.com";
-    var audience = builder.Configuration["JwtSettings:Audience"] ?? "https://main.d3445jgtnjwhm9.amplifyapp.com";
-
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = issuer,
-        ValidAudience = audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+        ValidAudience = builder.Configuration["JwtSettings:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"] ?? 
+                throw new InvalidOperationException("JWT Secret Key is not configured"))),
         ClockSkew = TimeSpan.Zero
     };
 
+    // Configure the JWT Bearer events for SignalR
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -166,10 +165,7 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
             
-            if (!string.IsNullOrEmpty(accessToken) && 
-                (path.StartsWithSegments("/userhub") || 
-                 path.StartsWithSegments("/notificationHub") || 
-                 path.StartsWithSegments("/boardMessageHub")))
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/boardMessageHub"))
             {
                 context.Token = accessToken;
             }
@@ -203,8 +199,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll",
         builder =>
         {
-            builder
-                .SetIsOriginAllowed(_ => true) // Be careful with this in production
+            builder.WithOrigins(
+                    "https://localhost:7052",
+                    "http://localhost:5031",
+                    "https://main.d3445jgtnjwhm9.amplifyapp.com"
+                )
                 .AllowAnyMethod()
                 .AllowAnyHeader()
                 .AllowCredentials();
@@ -251,82 +250,107 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Map controllers and hubs without requiring authorization by default
-app.MapControllers();
 app.MapRazorPages();
+app.MapControllers();
 app.MapHub<UserHub>("/userhub");
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<BoardMessageHub>("/boardMessageHub");
-
-// This should be last
 app.MapFallbackToFile("index.html");
 
-// Initialize database and SuperAdmin only in Development
-if (app.Environment.IsDevelopment())
+// Initialize database and SuperAdmin
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    var userManager = services.GetRequiredService<UserManager<User>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    try
     {
-        var services = scope.ServiceProvider;
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        var userManager = services.GetRequiredService<UserManager<User>>();
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
-        var logger = services.GetRequiredService<ILogger<Program>>();
-
-        try
+        logger.LogInformation("Checking database...");
+        if (!await context.Database.CanConnectAsync())
         {
-            logger.LogInformation("Checking database...");
-            if (!await context.Database.CanConnectAsync())
-            {
-                logger.LogInformation("Creating database and applying migrations...");
-                await context.Database.MigrateAsync();
-                logger.LogInformation("Database created and migrations applied successfully.");
-            }
+            logger.LogInformation("Creating database and applying migrations...");
+            await context.Database.MigrateAsync();
+            logger.LogInformation("Database created and migrations applied successfully.");
+        }
+        else
+        {
+            logger.LogInformation("Database exists, applying any pending migrations...");
+            await context.Database.MigrateAsync();
+            logger.LogInformation("Migrations applied successfully.");
+        }
 
-            // Initialize roles and SuperAdmin
-            logger.LogInformation("Starting Super Admin initialization...");
+        // Initialize roles and SuperAdmin
+        logger.LogInformation("Starting Super Admin initialization...");
+        
+        // Ensure roles exist
+        var roles = new[] { UserRoles.SuperAdmin, UserRoles.Admin, UserRoles.User, UserRoles.Client };
+        foreach (var role in roles)
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+            {
+                await roleManager.CreateAsync(new IdentityRole<int> { Name = role });
+                logger.LogInformation($"Created role: {role}");
+            }
+        }
+
+        // Check if SuperAdmin exists
+        var superAdminEmail = "superadmin@village.com";
+        var superAdmin = await userManager.FindByEmailAsync(superAdminEmail);
+
+        if (superAdmin == null)
+        {
+            // Create SuperAdmin user
+            superAdmin = new User
+            {
+                UserName = "SuperAdmin", // Changed back to original username
+                Email = superAdminEmail,
+                EmailConfirmed = true,
+                IsEmailVerified = true,
+                IsActive = true,
+                Role = UserRoles.SuperAdmin,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await userManager.CreateAsync(superAdmin, "Admin@123"); // Changed back to original password
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(superAdmin, UserRoles.SuperAdmin);
+                logger.LogInformation("SuperAdmin user created successfully");
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                logger.LogError($"Failed to create SuperAdmin user: {errors}");
+                throw new Exception($"Failed to create SuperAdmin user: {errors}");
+            }
+        }
+        else
+        {
+            // Reset existing SuperAdmin credentials
+            var token = await userManager.GeneratePasswordResetTokenAsync(superAdmin);
+            var result = await userManager.ResetPasswordAsync(superAdmin, token, "Admin@123"); // Changed back to original password
             
-            // Ensure roles exist
-            var roles = new[] { UserRoles.SuperAdmin, UserRoles.Admin, UserRoles.User, UserRoles.Client };
-            foreach (var role in roles)
+            superAdmin.UserName = "SuperAdmin"; // Changed back to original username
+            
+            if (!await userManager.IsInRoleAsync(superAdmin, UserRoles.SuperAdmin))
             {
-                if (!await roleManager.RoleExistsAsync(role))
-                {
-                    await roleManager.CreateAsync(new IdentityRole<int> { Name = role });
-                    logger.LogInformation($"Created role: {role}");
-                }
+                await userManager.AddToRoleAsync(superAdmin, UserRoles.SuperAdmin);
             }
-
-            // Check if SuperAdmin exists
-            var superAdminEmail = "superadmin@village.com";
-            var superAdmin = await userManager.FindByEmailAsync(superAdminEmail);
-
-            if (superAdmin == null)
-            {
-                // Create SuperAdmin user
-                superAdmin = new User
-                {
-                    UserName = "SuperAdmin",
-                    Email = superAdminEmail,
-                    EmailConfirmed = true,
-                    IsEmailVerified = true,
-                    IsActive = true,
-                    Role = UserRoles.SuperAdmin,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                var result = await userManager.CreateAsync(superAdmin, "Admin@123");
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(superAdmin, UserRoles.SuperAdmin);
-                    logger.LogInformation("SuperAdmin user created successfully");
-                }
-            }
+            
+            superAdmin.Role = UserRoles.SuperAdmin;
+            await userManager.UpdateAsync(superAdmin);
+            logger.LogInformation("SuperAdmin credentials reset to original values");
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "An error occurred during database/SuperAdmin initialization");
-            // Log error but don't throw in development
-        }
+
+        logger.LogInformation("Super Admin initialization completed.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred during database/SuperAdmin initialization");
+        throw;
     }
 }
 

@@ -28,10 +28,14 @@ try
     // Configure HttpClient with custom handler
     builder.Services.AddScoped<CustomHttpHandler>();
     
-    // Use the server's URL for the API endpoint
+    // Use the appropriate API endpoint based on environment
+    var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
+        ? "https://localhost:7052/"
+        : "https://main.d3445jgtnjwhm9.amplifyapp.com/";
+
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
-        client.BaseAddress = new Uri("https://main.d3445jgtnjwhm9.amplifyapp.com/");
+        client.BaseAddress = new Uri(apiBaseAddress);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
