@@ -261,100 +261,72 @@ app.MapHub<BoardMessageHub>("/boardMessageHub");
 // This should be last
 app.MapFallbackToFile("index.html");
 
-// Initialize database and SuperAdmin
-using (var scope = app.Services.CreateScope())
+// Initialize database and SuperAdmin only in Development
+if (app.Environment.IsDevelopment())
 {
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<ApplicationDbContext>();
-    var userManager = services.GetRequiredService<UserManager<User>>();
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
-    var logger = services.GetRequiredService<ILogger<Program>>();
-
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        logger.LogInformation("Checking database...");
-        if (!await context.Database.CanConnectAsync())
-        {
-            logger.LogInformation("Creating database and applying migrations...");
-            await context.Database.MigrateAsync();
-            logger.LogInformation("Database created and migrations applied successfully.");
-        }
-        else
-        {
-            logger.LogInformation("Database exists, applying any pending migrations...");
-            await context.Database.MigrateAsync();
-            logger.LogInformation("Migrations applied successfully.");
-        }
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var userManager = services.GetRequiredService<UserManager<User>>();
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
 
-        // Initialize roles and SuperAdmin
-        logger.LogInformation("Starting Super Admin initialization...");
-        
-        // Ensure roles exist
-        var roles = new[] { UserRoles.SuperAdmin, UserRoles.Admin, UserRoles.User, UserRoles.Client };
-        foreach (var role in roles)
+        try
         {
-            if (!await roleManager.RoleExistsAsync(role))
+            logger.LogInformation("Checking database...");
+            if (!await context.Database.CanConnectAsync())
             {
-                await roleManager.CreateAsync(new IdentityRole<int> { Name = role });
-                logger.LogInformation($"Created role: {role}");
+                logger.LogInformation("Creating database and applying migrations...");
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Database created and migrations applied successfully.");
             }
-        }
 
-        // Check if SuperAdmin exists
-        var superAdminEmail = "superadmin@village.com";
-        var superAdmin = await userManager.FindByEmailAsync(superAdminEmail);
-
-        if (superAdmin == null)
-        {
-            // Create SuperAdmin user
-            superAdmin = new User
-            {
-                UserName = "SuperAdmin", // Changed back to original username
-                Email = superAdminEmail,
-                EmailConfirmed = true,
-                IsEmailVerified = true,
-                IsActive = true,
-                Role = UserRoles.SuperAdmin,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            var result = await userManager.CreateAsync(superAdmin, "Admin@123"); // Changed back to original password
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(superAdmin, UserRoles.SuperAdmin);
-                logger.LogInformation("SuperAdmin user created successfully");
-            }
-            else
-            {
-                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                logger.LogError($"Failed to create SuperAdmin user: {errors}");
-                throw new Exception($"Failed to create SuperAdmin user: {errors}");
-            }
-        }
-        else
-        {
-            // Reset existing SuperAdmin credentials
-            var token = await userManager.GeneratePasswordResetTokenAsync(superAdmin);
-            var result = await userManager.ResetPasswordAsync(superAdmin, token, "Admin@123"); // Changed back to original password
+            // Initialize roles and SuperAdmin
+            logger.LogInformation("Starting Super Admin initialization...");
             
-            superAdmin.UserName = "SuperAdmin"; // Changed back to original username
-            
-            if (!await userManager.IsInRoleAsync(superAdmin, UserRoles.SuperAdmin))
+            // Ensure roles exist
+            var roles = new[] { UserRoles.SuperAdmin, UserRoles.Admin, UserRoles.User, UserRoles.Client };
+            foreach (var role in roles)
             {
-                await userManager.AddToRoleAsync(superAdmin, UserRoles.SuperAdmin);
+                if (!await roleManager.RoleExistsAsync(role))
+                {
+                    await roleManager.CreateAsync(new IdentityRole<int> { Name = role });
+                    logger.LogInformation($"Created role: {role}");
+                }
             }
-            
-            superAdmin.Role = UserRoles.SuperAdmin;
-            await userManager.UpdateAsync(superAdmin);
-            logger.LogInformation("SuperAdmin credentials reset to original values");
-        }
 
-        logger.LogInformation("Super Admin initialization completed.");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "An error occurred during database/SuperAdmin initialization");
-        throw;
+            // Check if SuperAdmin exists
+            var superAdminEmail = "superadmin@village.com";
+            var superAdmin = await userManager.FindByEmailAsync(superAdminEmail);
+
+            if (superAdmin == null)
+            {
+                // Create SuperAdmin user
+                superAdmin = new User
+                {
+                    UserName = "SuperAdmin",
+                    Email = superAdminEmail,
+                    EmailConfirmed = true,
+                    IsEmailVerified = true,
+                    IsActive = true,
+                    Role = UserRoles.SuperAdmin,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var result = await userManager.CreateAsync(superAdmin, "Admin@123");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(superAdmin, UserRoles.SuperAdmin);
+                    logger.LogInformation("SuperAdmin user created successfully");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred during database/SuperAdmin initialization");
+            // Log error but don't throw in development
+        }
     }
 }
 
