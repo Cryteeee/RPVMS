@@ -4,34 +4,37 @@ applications:
       phases:
         preBuild:
           commands:
+            - cd BlazorApp1
             - curl -sSL https://dot.net/v1/dotnet-install.sh > dotnet-install.sh
             - chmod +x ./dotnet-install.sh
             - ./dotnet-install.sh -c 7.0 -InstallDir ./dotnet
             - export PATH="./dotnet:$PATH"
             - dotnet --version
+            - dotnet restore
         build:
           commands:
+            - dotnet build -c Release
             - dotnet publish -c Release -o release
       artifacts:
-        baseDirectory: /release/wwwroot
+        baseDirectory: BlazorApp1/release/wwwroot
         files:
           - '**/*'
       cache:
         paths: []
-    appRoot: BlazorApp1
+      customHeaders:
+        - pattern: '**/*'
+          headers:
+            - key: 'Cache-Control'
+              value: 'max-age=0, no-cache, no-store, must-revalidate'
+        - pattern: 'static/**/*'
+          headers:
+            - key: 'Cache-Control'
+              value: 'public, max-age=31536000, immutable'
+        - pattern: '_framework/**/*'
+          headers:
+            - key: 'Cache-Control'
+              value: 'public, max-age=31536000, immutable'
+    appRoot: .
     env:
       variables:
-        ASPNETCORE_ENVIRONMENT: "Production"
-  customHeaders:
-    - pattern: '**/*'
-      headers:
-        - key: 'Cache-Control'
-          value: 'max-age=0, no-cache, no-store, must-revalidate'
-    - pattern: 'static/**/*'
-      headers:
-        - key: 'Cache-Control'
-          value: 'public, max-age=31536000, immutable'
-    - pattern: '_framework/**/*'
-      headers:
-        - key: 'Cache-Control'
-          value: 'public, max-age=31536000, immutable' 
+        ASPNETCORE_ENVIRONMENT: "Production" 
