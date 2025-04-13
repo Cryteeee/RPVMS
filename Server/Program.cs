@@ -200,7 +200,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
-        builder.WithOrigins("https://rpvms.amplifyapp.com")
+        builder.WithOrigins("https://rpvms.amplifyapp.com", "https://main.d3445jgtnjwhm9.amplifyapp.com")
                .AllowAnyMethod()
                .AllowAnyHeader()
                .AllowCredentials());

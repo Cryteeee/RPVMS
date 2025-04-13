@@ -31,13 +31,14 @@ try
     // Use the appropriate API endpoint based on environment
     var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://rpvms.amplifyapp.com/";  // Updated to match server configuration
+        : "https://main.d3445jgtnjwhm9.amplifyapp.com/";  // Updated to use the main domain
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
         client.BaseAddress = new Uri(apiBaseAddress);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.DefaultRequestHeaders.Add("Access-Control-Allow-Origin", "*");
+        client.DefaultRequestHeaders.Add("Cache-Control", "no-cache, no-store, must-revalidate");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
 

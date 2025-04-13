@@ -93,6 +93,8 @@ namespace BlazorApp1.Client.Services
                 _logger?.LogInformation($"Attempting login for email: {loginModel.Email}");
                 
                 var httpClient = _httpClientFactory.CreateClient("ManagementSystem");
+                _logger?.LogInformation($"Making request to: {httpClient.BaseAddress}api/Account/Login");
+                
                 var response = await httpClient.PostAsJsonAsync("api/Account/Login", loginModel);
                 
                 if (!response.IsSuccessStatusCode)
@@ -102,10 +104,11 @@ namespace BlazorApp1.Client.Services
                     
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
+                        _logger?.LogError("API endpoint not found. Base address: {BaseAddress}", httpClient.BaseAddress);
                         return new BlazorApp1.Shared.Response<string>
                         {
                             IsSuccess = false,
-                            Message = "The login service is not available. Please try again later."
+                            Message = "Cannot connect to the server. Please check your connection."
                         };
                     }
                     
@@ -146,9 +149,9 @@ namespace BlazorApp1.Client.Services
                 if (responseContent.IsSuccess && !string.IsNullOrEmpty(responseContent.Data))
                 {
                     await _localStorage.SetItemAsync("jwt-access-token", responseContent.Data);
+                    _logger?.LogInformation("Login successful");
                 }
 
-                _logger?.LogInformation("Login successful");
                 return responseContent;
             }
             catch (HttpRequestException ex)
