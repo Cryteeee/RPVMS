@@ -39,7 +39,13 @@ try
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.DefaultRequestHeaders.Add("Cache-Control", "no-cache, no-store, must-revalidate");
         client.DefaultRequestHeaders.Add("X-Client-Source", "BlazorWASM");
-        client.DefaultRequestHeaders.Add("Origin", builder.HostEnvironment.BaseAddress.TrimEnd('/'));
+        
+        // Set the correct origin based on the environment
+        var origin = builder.HostEnvironment.IsDevelopment()
+            ? "https://localhost:7052"
+            : "https://main.d3445jgtnjwhm9.amplifyapp.com";
+        client.DefaultRequestHeaders.Add("Origin", origin);
+        
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
 

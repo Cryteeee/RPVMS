@@ -203,17 +203,15 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", builder =>
     {
         builder
-            .SetIsOriginAllowed(origin => 
-            {
-                return origin.Contains("d3445jgtnjwhm9.amplifyapp.com") || 
-                       origin.Contains("rpvms.amplifyapp.com") ||
-                       origin.Contains("localhost");
-            })
+            .WithOrigins(
+                "https://main.d3445jgtnjwhm9.amplifyapp.com",
+                "https://d3445jgtnjwhm9.amplifyapp.com",
+                "http://localhost:7052",
+                "https://localhost:7052"
+            )
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials()
-            .WithExposedHeaders("Content-Disposition", "X-Client-Source")
-            .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+            .AllowCredentials();
     });
 });
 
@@ -247,32 +245,19 @@ app.UseRouting();
 // Add cache control and CORS headers middleware
 app.Use(async (context, next) =>
 {
-    // Add CORS headers for error responses first
-    if (context.Request.Headers.ContainsKey("Origin"))
+    var origin = context.Request.Headers["Origin"].ToString();
+    
+    if (context.Request.Method == "OPTIONS")
     {
-        var origin = context.Request.Headers["Origin"].ToString();
-        if (origin.Contains("d3445jgtnjwhm9.amplifyapp.com") || 
-            origin.Contains("rpvms.amplifyapp.com"))
-        {
-            context.Response.Headers["Access-Control-Allow-Origin"] = origin;
-            context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
-            context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
-            context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Client-Source, Accept, Origin";
-            
-            if (context.Request.Method == "OPTIONS")
-            {
-                context.Response.StatusCode = 200;
-                await context.Response.CompleteAsync();
-                return;
-            }
-        }
+        context.Response.Headers.Add("Access-Control-Allow-Origin", origin);
+        context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Client-Source");
+        context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        context.Response.Headers.Add("Access-Control-Allow-Credentials", "true");
+        context.Response.Headers.Add("Access-Control-Max-Age", "86400");
+        context.Response.StatusCode = 200;
+        return;
     }
 
-    // Add cache control headers
-    context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-    context.Response.Headers["Pragma"] = "no-cache";
-    context.Response.Headers["Expires"] = "0";
-    
     await next();
 });
 
