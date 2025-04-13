@@ -16,6 +16,16 @@ namespace BlazorApp1.Client.Shared.Providers
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            // Add CORS headers for all requests
+            if (!request.Headers.Contains("Origin"))
+            {
+                var origin = request.RequestUri.Host.Contains("localhost")
+                    ? "https://localhost:7052"
+                    : "https://main.d3445jgtnjwhm9.amplifyapp.com";
+                request.Headers.Add("Origin", origin);
+            }
+
+            // Handle authentication
             if (request.RequestUri.AbsolutePath.ToLower().Contains("login") ||
                 request.RequestUri.AbsolutePath.ToLower().Contains("register") ||
                 request.RequestUri.AbsolutePath.ToLower().Contains("check-email"))

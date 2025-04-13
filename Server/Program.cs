@@ -200,10 +200,9 @@ builder.Services.AddAuthorization(options =>
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(builder =>
+    options.AddDefaultPolicy(policy =>
     {
-        builder
-            .WithOrigins(
+        policy.WithOrigins(
                 "https://main.d3445jgtnjwhm9.amplifyapp.com",
                 "https://d3445jgtnjwhm9.amplifyapp.com",
                 "http://localhost:7052",
@@ -212,8 +211,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials()
-            .WithExposedHeaders("Content-Disposition", "File-Name")
-            .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+            .SetIsOriginAllowed(origin => true); // Allow any origin temporarily for debugging
     });
 });
 
@@ -235,12 +233,12 @@ else
     app.UseHsts();
 }
 
+// Enable CORS before other middleware
+app.UseCors();
+
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
-
-// Enable CORS - must be called before other middleware
-app.UseCors();
 
 app.UseRouting();
 

@@ -31,7 +31,7 @@ try
     // Use the appropriate API endpoint based on environment
     var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
+        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";  // Use the API subdomain
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
@@ -39,6 +39,7 @@ try
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.DefaultRequestHeaders.Add("Cache-Control", "no-cache, no-store, must-revalidate");
         client.DefaultRequestHeaders.Add("X-Client-Source", "BlazorWASM");
+        client.DefaultRequestHeaders.Add("Access-Control-Allow-Origin", "*");
         
         // Set the correct origin based on the environment
         var origin = builder.HostEnvironment.IsDevelopment()
@@ -48,15 +49,6 @@ try
         
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
-
-    // Add CORS policy
-    builder.Services.AddCors(options =>
-    {
-        options.AddPolicy("AllowAll", builder =>
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader());
-    });
 
     // Register services that depend on HttpClient
     builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ManagementSystem"));
