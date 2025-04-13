@@ -31,7 +31,7 @@ try
     // Use the appropriate API endpoint based on environment
     var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://rpvms-api.azurewebsites.net/";
+        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
