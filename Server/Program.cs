@@ -197,19 +197,25 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
+// Configure CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
-        builder.WithOrigins(
-            "https://main.d3445jgtnjwhm9.amplifyapp.com",
-            "https://d3445jgtnjwhm9.amplifyapp.com",
-            "https://api.d3445jgtnjwhm9.amplifyapp.com",
-            "https://rpvms.amplifyapp.com"
-        )
-        .AllowAnyMethod()
-        .AllowAnyHeader()
-        .AllowCredentials()
-        .SetIsOriginAllowed(_ => true)); // Allow any origin in development
+    {
+        builder
+            .WithOrigins(
+                "https://main.d3445jgtnjwhm9.amplifyapp.com",
+                "https://d3445jgtnjwhm9.amplifyapp.com",
+                "https://api.d3445jgtnjwhm9.amplifyapp.com",
+                "https://rpvms.amplifyapp.com"
+            )
+            .SetIsOriginAllowedToAllowWildcardSubdomains()
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials()
+            .WithExposedHeaders("Content-Disposition", "X-Client-Source")
+            .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+    });
 });
 
 builder.Services.AddRazorPages();
@@ -247,6 +253,21 @@ app.Use(async (context, next) =>
     context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
     context.Response.Headers["Pragma"] = "no-cache";
     context.Response.Headers["Expires"] = "0";
+    
+    // Add CORS headers for error responses
+    if (context.Request.Headers.ContainsKey("Origin"))
+    {
+        var origin = context.Request.Headers["Origin"].ToString();
+        if (origin.EndsWith("d3445jgtnjwhm9.amplifyapp.com") || 
+            origin.EndsWith("rpvms.amplifyapp.com"))
+        {
+            context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+            context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+            context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
+            context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Client-Source";
+        }
+    }
+    
     await next();
 });
 
