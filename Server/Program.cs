@@ -191,6 +191,7 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
+// Add CORS configuration
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
@@ -200,6 +201,14 @@ builder.Services.AddCors(options =>
                    .AllowAnyMethod()
                    .AllowAnyHeader();
         });
+
+    options.AddPolicy("AllowNetlify", policy =>
+    {
+        policy.WithOrigins("https://rooseveltparkvillage-ph.netlify.app")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
 });
 
 builder.Services.AddRazorPages();
@@ -238,6 +247,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseCors("AllowAll");
+app.UseCors("AllowNetlify");
 
 app.UseAuthentication();
 app.UseAuthorization();

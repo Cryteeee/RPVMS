@@ -31,9 +31,9 @@ try
     // Configure the API base URL
     var apiBaseUrl = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://rooseveltparkvillage-ph.netlify.app/api/";  // Add /api/ to the production URL
+        : "https://rpvms-api.azurewebsites.net/";  // Replace with your Azure Web App URL
 
-    Console.WriteLine($"Using API Base URL: {apiBaseUrl}"); // Add logging
+    Console.WriteLine($"Using API Base URL: {apiBaseUrl}");
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
