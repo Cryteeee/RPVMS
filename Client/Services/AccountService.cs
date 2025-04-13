@@ -93,12 +93,21 @@ namespace BlazorApp1.Client.Services
                 _logger?.LogInformation($"Attempting login for email: {loginModel.Email}");
                 
                 var httpClient = _httpClientFactory.CreateClient("ManagementSystem");
-                var response = await httpClient.PostAsJsonAsync("api/Account/Login", loginModel, _jsonOptions);
+                var response = await httpClient.PostAsJsonAsync("api/Account/Login", loginModel);
                 
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger?.LogWarning($"Login failed with status code: {response.StatusCode}, Error: {errorContent}");
+                    
+                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        return new BlazorApp1.Shared.Response<string>
+                        {
+                            IsSuccess = false,
+                            Message = "The login service is not available. Please try again later."
+                        };
+                    }
                     
                     try
                     {

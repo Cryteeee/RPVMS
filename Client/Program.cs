@@ -31,7 +31,7 @@ try
     // Use the appropriate API endpoint based on environment
     var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://main.d3445jgtnjwhm9.amplifyapp.com/";
+        : $"{builder.HostEnvironment.BaseAddress}";  // Use the base address from the host environment
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {

@@ -196,15 +196,11 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder
-                .SetIsOriginAllowed(_ => true) // Be careful with this in production
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials();
-        });
+    options.AddPolicy("AllowAll", builder =>
+        builder.SetIsOriginAllowed(_ => true)
+               .AllowAnyMethod()
+               .AllowAnyHeader()
+               .AllowCredentials());
 });
 
 builder.Services.AddRazorPages();
@@ -233,6 +229,9 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// Configure CORS - must be between UseRouting and UseEndpoints
+app.UseCors("AllowAll");
+
 // Add cache control middleware
 app.Use(async (context, next) =>
 {
@@ -242,13 +241,11 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseCors("AllowAll");
-
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapRazorPages();
 app.MapControllers();
+app.MapRazorPages();
 app.MapHub<UserHub>("/userhub");
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<BoardMessageHub>("/boardMessageHub");
