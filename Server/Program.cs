@@ -199,12 +199,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll",
         builder =>
         {
-            builder.WithOrigins(
-                    "https://localhost:7052",
-                    "http://localhost:5031",
-                    "https://main.d3445jgtnjwhm9.amplifyapp.com",
-                    "https://api.d3445jgtnjwhm9.amplifyapp.com"
-                )
+            builder
+                .SetIsOriginAllowed(_ => true) // Be careful with this in production
                 .AllowAnyMethod()
                 .AllowAnyHeader()
                 .AllowCredentials();

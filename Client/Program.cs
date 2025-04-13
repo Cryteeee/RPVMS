@@ -31,12 +31,13 @@ try
     // Use the appropriate API endpoint based on environment
     var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
+        : "https://main.d3445jgtnjwhm9.amplifyapp.com/";
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
         client.BaseAddress = new Uri(apiBaseAddress);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
+        client.DefaultRequestHeaders.Add("Access-Control-Allow-Origin", "*");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
 
