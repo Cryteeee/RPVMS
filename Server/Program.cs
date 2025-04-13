@@ -100,7 +100,7 @@ builder.Services.AddHttpClient("ManagementSystem", client =>
 {
     var baseUrl = builder.Environment.IsDevelopment()
         ? "https://localhost:7052/"
-        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
+        : "https://rpvms.amplifyapp.com/";
     client.BaseAddress = new Uri(baseUrl);
     client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 });
@@ -149,8 +149,8 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = "https://rpvms.amplifyapp.com",
-        ValidAudience = "https://rpvms.amplifyapp.com",
+        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+        ValidAudience = builder.Configuration["JwtSettings:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"] ?? 
                 throw new InvalidOperationException("JWT Secret Key is not configured"))),
