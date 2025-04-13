@@ -39,7 +39,7 @@ try
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.DefaultRequestHeaders.Add("Cache-Control", "no-cache, no-store, must-revalidate");
         client.DefaultRequestHeaders.Add("X-Client-Source", "BlazorWASM");
-        client.DefaultRequestHeaders.Add("Origin", builder.HostEnvironment.BaseAddress);
+        client.DefaultRequestHeaders.Add("Origin", builder.HostEnvironment.BaseAddress.TrimEnd('/'));
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
 
