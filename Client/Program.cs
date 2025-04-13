@@ -30,13 +30,16 @@ try
     
     // Configure the API base URL
     var apiBaseUrl = builder.HostEnvironment.IsDevelopment() 
-        ? "https://localhost:7052"
-        : "https://rooseveltparkvillage-ph.netlify.app";
+        ? "https://localhost:7052/"
+        : "https://rooseveltparkvillage-ph.netlify.app/api/";  // Add /api/ to the production URL
+
+    Console.WriteLine($"Using API Base URL: {apiBaseUrl}"); // Add logging
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
         client.BaseAddress = new Uri(apiBaseUrl);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
+        client.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
 

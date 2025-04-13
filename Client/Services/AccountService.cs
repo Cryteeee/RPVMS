@@ -93,12 +93,16 @@ namespace BlazorApp1.Client.Services
                 _logger?.LogInformation($"Attempting login for email: {loginModel.Email}");
                 
                 var httpClient = _httpClientFactory.CreateClient("ManagementSystem");
+                Console.WriteLine($"Login request URL: {httpClient.BaseAddress}api/UserAccount/Login");
+                
                 var response = await httpClient.PostAsJsonAsync("api/UserAccount/Login", loginModel, _jsonOptions);
+                Console.WriteLine($"Login response status: {response.StatusCode}");
                 
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger?.LogWarning($"Login failed with status code: {response.StatusCode}, Error: {errorContent}");
+                    Console.WriteLine($"Login error content: {errorContent}");
                     
                     try
                     {
@@ -111,20 +115,26 @@ namespace BlazorApp1.Client.Services
                     catch (Exception ex)
                     {
                         _logger?.LogError(ex, "Failed to deserialize error response");
+                        Console.WriteLine($"Deserialization error: {ex.Message}");
                     }
                     
                     return new BlazorApp1.Shared.Response<string>
                     {
                         IsSuccess = false,
-                        Message = response.StatusCode == System.Net.HttpStatusCode.BadRequest 
-                            ? "Invalid email or password" 
-                            : "Login failed. Please try again later."
+                        Message = response.StatusCode == System.Net.HttpStatusCode.NotFound 
+                            ? "API endpoint not found. Please check the server configuration."
+                            : response.StatusCode == System.Net.HttpStatusCode.BadRequest 
+                                ? "Invalid email or password" 
+                                : $"Login failed. Server returned {response.StatusCode}"
                     };
                 }
 
-                var responseContent = await response.Content.ReadFromJsonAsync<BlazorApp1.Shared.Response<string>>(_jsonOptions);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Login success response: {responseContent}");
                 
-                if (responseContent == null)
+                var result = JsonSerializer.Deserialize<BlazorApp1.Shared.Response<string>>(responseContent, _jsonOptions);
+                
+                if (result == null)
                 {
                     _logger?.LogError("Failed to parse server response");
                     return new BlazorApp1.Shared.Response<string>
@@ -134,30 +144,32 @@ namespace BlazorApp1.Client.Services
                     };
                 }
 
-                if (responseContent.IsSuccess && !string.IsNullOrEmpty(responseContent.Data))
+                if (result.IsSuccess && !string.IsNullOrEmpty(result.Data))
                 {
-                    await _localStorage.SetItemAsync("jwt-access-token", responseContent.Data);
+                    await _localStorage.SetItemAsync("jwt-access-token", result.Data);
+                    _logger?.LogInformation("Login successful and token stored");
                 }
 
-                _logger?.LogInformation("Login successful");
-                return responseContent;
+                return result;
             }
             catch (HttpRequestException ex)
             {
                 _logger?.LogError(ex, "Network error during login");
+                Console.WriteLine($"Network error: {ex.Message}");
                 return new BlazorApp1.Shared.Response<string>
                 {
                     IsSuccess = false,
-                    Message = "Cannot connect to the server. Please check your connection."
+                    Message = $"Cannot connect to the server: {ex.Message}"
                 };
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error during login");
+                Console.WriteLine($"General error: {ex.Message}");
                 return new BlazorApp1.Shared.Response<string>
                 {
                     IsSuccess = false,
-                    Message = "An error occurred during login. Please try again later."
+                    Message = $"An error occurred during login: {ex.Message}"
                 };
             }
         }
