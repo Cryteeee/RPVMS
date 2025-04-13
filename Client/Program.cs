@@ -31,7 +31,7 @@ try
     // Use the appropriate API endpoint based on environment
     var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";  // Use the API subdomain
+        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
@@ -39,14 +39,13 @@ try
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.DefaultRequestHeaders.Add("Cache-Control", "no-cache, no-store, must-revalidate");
         client.DefaultRequestHeaders.Add("X-Client-Source", "BlazorWASM");
-        client.DefaultRequestHeaders.Add("Access-Control-Allow-Origin", "*");
         
         // Set the correct origin based on the environment
         var origin = builder.HostEnvironment.IsDevelopment()
             ? "https://localhost:7052"
             : "https://main.d3445jgtnjwhm9.amplifyapp.com";
-        client.DefaultRequestHeaders.Add("Origin", origin);
-        
+            
+        // Don't add Origin header here, let the browser handle it
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
 

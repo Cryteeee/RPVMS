@@ -210,8 +210,8 @@ builder.Services.AddCors(options =>
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials()
-            .SetIsOriginAllowed(origin => true); // Allow any origin temporarily for debugging
+            .WithExposedHeaders("Authorization")
+            .AllowCredentials();
     });
 });
 
