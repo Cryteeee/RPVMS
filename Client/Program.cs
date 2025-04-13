@@ -28,13 +28,14 @@ try
     // Configure HttpClient with custom handler
     builder.Services.AddScoped<CustomHttpHandler>();
     
-    // Use the current base address for the API endpoint
-    var baseAddress = builder.HostEnvironment.BaseAddress;
+    // Configure the API base URL
+    var apiBaseUrl = builder.HostEnvironment.IsDevelopment() 
+        ? "https://localhost:7052"
+        : "https://rooseveltparkvillage-ph.netlify.app";
+
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
-        client.BaseAddress = new Uri(builder.HostEnvironment.IsDevelopment() 
-            ? "https://localhost:7052/"
-            : baseAddress);
+        client.BaseAddress = new Uri(apiBaseUrl);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
