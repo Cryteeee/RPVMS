@@ -149,8 +149,8 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
-        ValidAudience = builder.Configuration["JwtSettings:Audience"],
+        ValidIssuer = "https://rpvms.amplifyapp.com",
+        ValidAudience = "https://rpvms.amplifyapp.com",
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:SecretKey"] ?? 
                 throw new InvalidOperationException("JWT Secret Key is not configured"))),
@@ -165,7 +165,10 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
             
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/boardMessageHub"))
+            if (!string.IsNullOrEmpty(accessToken) && 
+                (path.StartsWithSegments("/boardMessageHub") || 
+                 path.StartsWithSegments("/notificationHub") || 
+                 path.StartsWithSegments("/userhub")))
             {
                 context.Token = accessToken;
             }
@@ -197,7 +200,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
-        builder.SetIsOriginAllowed(_ => true)
+        builder.WithOrigins("https://rpvms.amplifyapp.com")
                .AllowAnyMethod()
                .AllowAnyHeader()
                .AllowCredentials());
