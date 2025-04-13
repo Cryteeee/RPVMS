@@ -100,7 +100,7 @@ builder.Services.AddHttpClient("ManagementSystem", client =>
 {
     var baseUrl = builder.Environment.IsDevelopment()
         ? "https://localhost:7052/"
-        : "https://main.d3445jgtnjwhm9.amplifyapp.com/";
+        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
     client.BaseAddress = new Uri(baseUrl);
     client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 });
@@ -203,11 +203,13 @@ builder.Services.AddCors(options =>
         builder.WithOrigins(
             "https://main.d3445jgtnjwhm9.amplifyapp.com",
             "https://d3445jgtnjwhm9.amplifyapp.com",
+            "https://api.d3445jgtnjwhm9.amplifyapp.com",
             "https://rpvms.amplifyapp.com"
         )
         .AllowAnyMethod()
         .AllowAnyHeader()
-        .AllowCredentials());
+        .AllowCredentials()
+        .SetIsOriginAllowed(_ => true)); // Allow any origin in development
 });
 
 builder.Services.AddRazorPages();
