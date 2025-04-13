@@ -1,6 +1,6 @@
 [build]
-  command = "dotnet publish -c Release"
-  publish = "bin/Release/net7.0/publish/wwwroot"
+  command = "dotnet publish Client/Client.csproj -c Release"
+  publish = "Client/bin/Release/net7.0/publish/wwwroot"
   
 [build.environment]
   DOTNET_ROOT = "/usr/share/dotnet"
