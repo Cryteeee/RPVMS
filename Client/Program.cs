@@ -31,7 +31,7 @@ try
     // Use the appropriate API endpoint based on environment
     var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : $"{builder.HostEnvironment.BaseAddress}";  // Use the base address from the host environment
+        : "https://rpvms.amplifyapp.com/";  // Updated to match server configuration
 
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
