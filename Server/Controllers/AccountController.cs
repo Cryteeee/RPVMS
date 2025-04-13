@@ -515,13 +515,10 @@ namespace BlazorApp1.Server.Controllers
         {
             try
             {
-                _logger.LogInformation($"Login attempt for email: {model.Email}");
-                
                 var user = await _userManager.FindByEmailAsync(model.Email);
 
                 if (user == null)
                 {
-                    _logger.LogWarning($"Login failed - user not found for email: {model.Email}");
                     return BadRequest(new Response<string>
                     {
                         IsSuccess = false,
@@ -533,7 +530,6 @@ namespace BlazorApp1.Server.Controllers
                 var result = await _userManager.CheckPasswordAsync(user, model.Password);
                 if (!result)
                 {
-                    _logger.LogWarning($"Login failed - invalid password for email: {model.Email}");
                     return BadRequest(new Response<string>
                     {
                         IsSuccess = false,
@@ -567,8 +563,6 @@ namespace BlazorApp1.Server.Controllers
                 user.LastLoginAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Generating JWT token for user: {user.Email}");
-
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var key = Encoding.ASCII.GetBytes(_configuration["JwtSettings:SecretKey"]);
                 var tokenDescriptor = new SecurityTokenDescriptor
@@ -591,8 +585,6 @@ namespace BlazorApp1.Server.Controllers
 
                 var token = tokenHandler.CreateToken(tokenDescriptor);
                 var tokenString = tokenHandler.WriteToken(token);
-
-                _logger.LogInformation($"Login successful for user: {user.Email}");
 
                 return Ok(new Response<string>
                 {

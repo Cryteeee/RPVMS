@@ -28,24 +28,14 @@ try
     // Configure HttpClient with custom handler
     builder.Services.AddScoped<CustomHttpHandler>();
     
-    // Use the appropriate API endpoint based on environment
-    var apiBaseAddress = builder.HostEnvironment.IsDevelopment() 
-        ? "https://localhost:7052/"
-        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
-
+    // Use the current base address for the API endpoint
+    var baseAddress = builder.HostEnvironment.BaseAddress;
     builder.Services.AddHttpClient("ManagementSystem", client =>
     {
-        client.BaseAddress = new Uri(apiBaseAddress);
+        client.BaseAddress = new Uri(builder.HostEnvironment.IsDevelopment() 
+            ? "https://localhost:7052/"
+            : baseAddress);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
-        client.DefaultRequestHeaders.Add("Cache-Control", "no-cache, no-store, must-revalidate");
-        client.DefaultRequestHeaders.Add("X-Client-Source", "BlazorWASM");
-        
-        // Set the correct origin based on the environment
-        var origin = builder.HostEnvironment.IsDevelopment()
-            ? "https://localhost:7052"
-            : "https://main.d3445jgtnjwhm9.amplifyapp.com";
-            
-        // Don't add Origin header here, let the browser handle it
         client.Timeout = TimeSpan.FromSeconds(30);
     }).AddHttpMessageHandler<CustomHttpHandler>();
 

@@ -98,10 +98,7 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
 // Add HttpClient configuration
 builder.Services.AddHttpClient("ManagementSystem", client =>
 {
-    var baseUrl = builder.Environment.IsDevelopment()
-        ? "https://localhost:7052/"
-        : "https://api.d3445jgtnjwhm9.amplifyapp.com/";
-    client.BaseAddress = new Uri(baseUrl);
+    client.BaseAddress = new Uri(builder.Configuration["BaseUri"] ?? "https://localhost:7052/");
     client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 });
 
@@ -165,10 +162,7 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
             
-            if (!string.IsNullOrEmpty(accessToken) && 
-                (path.StartsWithSegments("/boardMessageHub") || 
-                 path.StartsWithSegments("/notificationHub") || 
-                 path.StartsWithSegments("/userhub")))
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/boardMessageHub"))
             {
                 context.Token = accessToken;
             }
@@ -197,22 +191,15 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
-// Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins(
-                "https://main.d3445jgtnjwhm9.amplifyapp.com",
-                "https://d3445jgtnjwhm9.amplifyapp.com",
-                "http://localhost:7052",
-                "https://localhost:7052"
-            )
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .WithExposedHeaders("Authorization")
-            .AllowCredentials();
-    });
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
 });
 
 builder.Services.AddRazorPages();
@@ -233,39 +220,30 @@ else
     app.UseHsts();
 }
 
-// Enable CORS before other middleware
-app.UseCors();
-
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
+
+// Serve static files from wwwroot
 app.UseStaticFiles();
 
 app.UseRouting();
 
-// Add cache control and CORS headers middleware
+// Add cache control middleware
 app.Use(async (context, next) =>
 {
-    var origin = context.Request.Headers["Origin"].ToString();
-    
-    if (context.Request.Method == "OPTIONS")
-    {
-        context.Response.Headers.Add("Access-Control-Allow-Origin", origin);
-        context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Client-Source");
-        context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        context.Response.Headers.Add("Access-Control-Allow-Credentials", "true");
-        context.Response.Headers.Add("Access-Control-Max-Age", "86400");
-        context.Response.StatusCode = 200;
-        return;
-    }
-
+    context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    context.Response.Headers["Pragma"] = "no-cache";
+    context.Response.Headers["Expires"] = "0";
     await next();
 });
+
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
 app.MapRazorPages();
+app.MapControllers();
 app.MapHub<UserHub>("/userhub");
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<BoardMessageHub>("/boardMessageHub");

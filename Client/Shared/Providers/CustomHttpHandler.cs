@@ -16,7 +16,6 @@ namespace BlazorApp1.Client.Shared.Providers
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            // Handle authentication for non-public endpoints
             if (request.RequestUri.AbsolutePath.ToLower().Contains("login") ||
                 request.RequestUri.AbsolutePath.ToLower().Contains("register") ||
                 request.RequestUri.AbsolutePath.ToLower().Contains("check-email"))

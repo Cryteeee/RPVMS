@@ -8,29 +8,12 @@ frontend:
         - ./dotnet-install.sh -c 7.0 -InstallDir ./dotnet7
         - export PATH="./dotnet7:$PATH"
         - dotnet --version
-        - dotnet restore
     build:
       commands:
-        - dotnet build -c Release
         - dotnet publish -c Release -o dist
   artifacts:
     baseDirectory: dist/wwwroot
     files:
       - '**/*'
   cache:
-    paths:
-      - node_modules/**/*
-      - ~/.nuget/packages/**/*
-  customHeaders:
-    - pattern: '**/*'
-      headers:
-        - key: 'Cache-Control'
-          value: 'max-age=0, no-cache, no-store, must-revalidate'
-    - pattern: 'static/**/*'
-      headers:
-        - key: 'Cache-Control'
-          value: 'public, max-age=31536000, immutable'
-    - pattern: '_framework/**/*'
-      headers:
-        - key: 'Cache-Control'
-          value: 'public, max-age=31536000, immutable' 
+    paths: [] 

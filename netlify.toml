@@ -1,0 +1,12 @@
+[build]
+  command = "dotnet publish -c Release"
+  publish = "bin/Release/net7.0/publish/wwwroot"
+  
+[build.environment]
+  DOTNET_ROOT = "/usr/share/dotnet"
+  DOTNET_VERSION = "7.0"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200 
