@@ -100,7 +100,7 @@ builder.Services.AddHttpClient("ManagementSystem", client =>
 {
     var baseUrl = builder.Environment.IsDevelopment()
         ? "https://localhost:7052/"
-        : "https://main.d3445jgtnjwhm9.amplifyapp.com/";
+        : "https://rpvms-api.azurewebsites.net/";
     client.BaseAddress = new Uri(baseUrl);
     client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 });
@@ -202,7 +202,8 @@ builder.Services.AddCors(options =>
             builder.WithOrigins(
                     "https://localhost:7052",
                     "http://localhost:5031",
-                    "https://main.d3445jgtnjwhm9.amplifyapp.com"
+                    "https://main.d3445jgtnjwhm9.amplifyapp.com",
+                    "https://rpvms-api.azurewebsites.net"
                 )
                 .AllowAnyMethod()
                 .AllowAnyHeader()
