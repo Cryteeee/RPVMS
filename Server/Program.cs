@@ -235,6 +235,9 @@ app.UseBlazorFrameworkFiles();
 // Serve static files from wwwroot
 app.UseStaticFiles();
 
+// Enable CORS before routing
+app.UseCors("AllowNetlify");
+
 app.UseRouting();
 
 // Add cache control middleware
@@ -245,9 +248,6 @@ app.Use(async (context, next) =>
     context.Response.Headers["Expires"] = "0";
     await next();
 });
-
-app.UseCors("AllowAll");
-app.UseCors("AllowNetlify");
 
 app.UseAuthentication();
 app.UseAuthorization();

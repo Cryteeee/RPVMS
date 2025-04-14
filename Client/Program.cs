@@ -31,7 +31,7 @@ try
     // Configure the API base URL
     var apiBaseUrl = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "https://rpvms-api.azurewebsites.net/";  // Replace with your Azure Web App URL
+        : "http://your-api.region.elasticbeanstalk.com/";  // We'll replace this with your actual Elastic Beanstalk URL
 
     Console.WriteLine($"Using API Base URL: {apiBaseUrl}");
 
