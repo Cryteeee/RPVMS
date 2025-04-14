@@ -194,20 +194,13 @@ builder.Services.AddAuthorization(options =>
 // Add CORS configuration
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
-
     options.AddPolicy("AllowNetlify", policy =>
     {
         policy.WithOrigins("https://rooseveltparkvillage-ph.netlify.app")
               .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowCredentials()
+              .SetIsOriginAllowed(_ => true); // Be careful with this in production
     });
 });
 
@@ -231,9 +224,6 @@ else
 
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
-
-// Serve static files from wwwroot
-app.UseStaticFiles();
 
 // Enable CORS before routing
 app.UseCors("AllowNetlify");
