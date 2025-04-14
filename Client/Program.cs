@@ -31,7 +31,7 @@ try
     // Configure the API base URL
     var apiBaseUrl = builder.HostEnvironment.IsDevelopment() 
         ? "https://localhost:7052/"
-        : "http://your-api.region.elasticbeanstalk.com/";  // We'll replace this with your actual Elastic Beanstalk URL
+        : "https://rpvms-api-env.eba-3wjmppkp.us-east-1.elasticbeanstalk.com/";  // Updated Elastic Beanstalk URL
 
     Console.WriteLine($"Using API Base URL: {apiBaseUrl}");
 
